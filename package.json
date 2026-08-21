@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",
+    "@supabase/supabase-js": "^2.112.3",
+    "@vercel/functions": "^3.9.5",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",

@@ -1,0 +1,206 @@
+import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
+import type { Reading } from "./ocr";
+import type { Slot } from "./slot";
+
+/**
+ * Server-side only. Uses the service key, which bypasses RLS — this module must
+ * never be imported into anything that ships to the client.
+ */
+export const db = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!,
+  { auth: { persistSession: false } }
+);
+
+export const BUCKET = "readings";
+
+export function hashImage(buf: Buffer): string {
+  return crypto.createHash("sha256").update(buf).digest("hex");
+}
+
+/** FR-9.2: a household exists as soon as the bot sees its group. */
+export async function ensureHousehold(groupId: string): Promise<void> {
+  await db.from("settings").upsert({ group_id: groupId }, { onConflict: "group_id" });
+}
+
+/** FR-9.2: anyone who posts is enrolled automatically — no join code. */
+export async function ensureMember(
+  groupId: string,
+  userId: string,
+  displayName?: string
+): Promise<void> {
+  await ensureHousehold(groupId);
+  await db.from("members").upsert(
+    {
+      user_id: userId,
+      group_id: groupId,
+      ...(displayName ? { display_name: displayName } : {}),
+    },
+    { onConflict: "user_id" }
+  );
+}
+
+export async function memberGroup(userId: string): Promise<string | null> {
+  const { data } = await db
+    .from("members")
+    .select("group_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return data?.group_id ?? null;
+}
+
+/** Push returned 403 — stop trying until they add the OA as a friend. */
+export async function markUnreachable(userId: string): Promise<void> {
+  await db.from("members").update({ notify_ok: false }).eq("user_id", userId);
+}
+
+/** FR-1.6: the same image posted twice. Two readings minutes apart are NOT duplicates. */
+export async function findByHash(groupId: string, hash: string): Promise<string | null> {
+  const { data } = await db
+    .from("readings")
+    .select("id")
+    .eq("group_id", groupId)
+    .eq("image_hash", hash)
+    .is("deleted_at", null)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+export async function uploadImage(
+  groupId: string,
+  readingId: string,
+  buf: Buffer,
+  contentType = "image/jpeg"
+): Promise<string> {
+  const path = `${groupId}/${readingId}.jpg`;
+  const { error } = await db.storage
+    .from(BUCKET)
+    .upload(path, buf, { contentType, upsert: true });
+  if (error) throw new Error(`storage upload failed: ${error.message}`);
+  return path;
+}
+
+export async function signedImageUrl(path: string, seconds = 300): Promise<string | null> {
+  const { data } = await db.storage.from(BUCKET).createSignedUrl(path, seconds);
+  return data?.signedUrl ?? null;
+}
+
+export async function insertReading(row: {
+  groupId: string;
+  senderId: string;
+  takenAt: Date;
+  postedAt: Date;
+  slot: Slot;
+  readingDate: string;
+  reading?: Reading | null;
+  source?: string;
+  imageHash?: string | null;
+  imagePath?: string | null;
+  needsReview: boolean;
+  reviewNote?: string | null;
+}): Promise<string> {
+  const r = row.reading;
+  const { data, error } = await db
+    .from("readings")
+    .insert({
+      group_id: row.groupId,
+      sender_id: row.senderId,
+      taken_at: row.takenAt.toISOString(),
+      posted_at: row.postedAt.toISOString(),
+      slot: row.slot,
+      reading_date: row.readingDate,
+      sys: r?.sys ?? null,
+      dia: r?.dia ?? null,
+      pulse: r?.pulse ?? null,
+      irregular_flag: r?.irregular_flag ?? null,
+      source: row.source ?? "image",
+      image_hash: row.imageHash ?? null,
+      image_path: row.imagePath ?? null,
+      ocr_raw: r ?? null,
+      confidence: r?.confidence ?? null,
+      needs_review: row.needsReview,
+      review_note: row.reviewNote ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (error) throw new Error(`insert failed: ${error.message}`);
+  return data.id as string;
+}
+
+export async function setImagePath(id: string, path: string): Promise<void> {
+  await db.from("readings").update({ image_path: path }).eq("id", id);
+}
+
+/** Fill the fields a failed OCR left null, from numbers the sender typed. */
+export async function completeReading(
+  id: string,
+  vals: Record<string, number>,
+  byUserId: string
+): Promise<void> {
+  const now = new Date().toISOString();
+  const patch: Record<string, unknown> = {
+    ...vals,
+    source: "image+text",
+    edited_by: byUserId,
+    edited_at: now,
+  };
+
+  const { data } = await db.from("readings").select("sys,dia,pulse").eq("id", id).single();
+  const merged = { ...data, ...vals } as Record<string, number | null>;
+
+  if (merged.sys != null && merged.dia != null && merged.pulse != null) {
+    patch.needs_review = false;
+    patch.reviewed_by = byUserId;
+    patch.reviewed_at = now;
+  }
+
+  await db.from("readings").update(patch).eq("id", id);
+}
+
+// ------------------------------------------------------------------ pending
+
+export async function setPending(
+  userId: string,
+  readingId: string,
+  missing: string[],
+  minutes = 30
+): Promise<void> {
+  await db.from("pending").upsert({
+    user_id: userId,
+    reading_id: readingId,
+    missing,
+    expires_at: new Date(Date.now() + minutes * 60_000).toISOString(),
+  });
+}
+
+export async function getPending(
+  userId: string
+): Promise<{ reading_id: string; missing: string[] } | null> {
+  const { data } = await db
+    .from("pending")
+    .select("reading_id,missing,expires_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!data) return null;
+  if (new Date(data.expires_at) < new Date()) {
+    await clearPending(userId);
+    return null;
+  }
+  return { reading_id: data.reading_id, missing: data.missing };
+}
+
+export async function clearPending(userId: string): Promise<void> {
+  await db.from("pending").delete().eq("user_id", userId);
+}
+
+// -------------------------------------------------------------------- usage
+
+/** Returns today's OCR call count after adding this one. Backs the daily cap. */
+export async function bumpUsage(groupId: string, ocr = 0, triage = 0): Promise<number> {
+  const { data, error } = await db.rpc("bump_usage", { g: groupId, ocr, triage });
+  if (error) return 0; // accounting must never block a reading
+  return (data as number) ?? 0;
+}
