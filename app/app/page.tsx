@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { initLiff, apiFetch, type LiffSession } from "@/lib/liff";
 import { ReadingsTable } from "@/components/readings-table";
+import { ReadingDetail } from "@/components/reading-detail";
 import type { ReadingDto } from "@/app/api/readings/route";
 
 type Payload = {
@@ -23,7 +24,8 @@ const RANGES = [
 type RangeKey = (typeof RANGES)[number]["key"];
 
 function fromDate(key: RangeKey, lastVisit: string | null): string {
-  const days = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+  const days = (n: number) =>
+    new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
   if (key === "visit") return lastVisit ?? days(30);
   if (key === "30") return days(30);
   if (key === "90") return days(90);
@@ -35,13 +37,16 @@ export default function AppPage() {
   const [data, setData] = useState<Payload | null>(null);
   const [range, setRange] = useState<RangeKey>("visit");
   const [reviewOnly, setReviewOnly] = useState(false);
+  const [selected, setSelected] = useState<ReadingDto | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    initLiff().then(setSession).catch((e) => setError(String(e.message ?? e)));
+    initLiff()
+      .then(setSession)
+      .catch((e) => setError(String(e.message ?? e)));
   }, []);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!session) return;
     const from = fromDate(range, data?.settings?.last_visit_date ?? null);
     const qs = new URLSearchParams({ from, ...(reviewOnly ? { review: "1" } : {}) });
@@ -49,13 +54,17 @@ export default function AppPage() {
     apiFetch<Payload>(`/api/readings?${qs}`, session)
       .then(setData)
       .catch((e) => setError(String(e.message ?? e)));
-    // data?.settings is intentionally not a dependency: refetching on its arrival
-    // would loop. The first load uses 30 days, then the range control re-queries.
+    // data.settings is deliberately not a dependency — refetching when it arrives
+    // would loop. The range control re-queries once a last-visit date exists.
   }, [session, range, reviewOnly]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   if (error) {
     return (
-      <main className="p-6">
+      <main className="mx-auto max-w-lg p-6">
         <h1 className="mb-2 text-lg font-semibold">เปิดข้อมูลไม่ได้</h1>
         <p className="text-sm text-stone-600">{error}</p>
         <p className="mt-4 text-sm text-stone-500">
@@ -66,7 +75,7 @@ export default function AppPage() {
   }
 
   if (!data) {
-    return <main className="p-6 text-stone-500">กำลังโหลด…</main>;
+    return <main className="mx-auto max-w-lg p-6 text-stone-500">กำลังโหลด…</main>;
   }
 
   return (
@@ -96,7 +105,7 @@ export default function AppPage() {
           ))}
         </div>
 
-        {data.review_count > 0 && (
+        {(data.review_count > 0 || reviewOnly) && (
           <button
             onClick={() => setReviewOnly((v) => !v)}
             className={
@@ -106,7 +115,11 @@ export default function AppPage() {
                 : "border-amber-300 bg-amber-50 text-amber-900")
             }
           >
-            <span className="font-medium">{data.review_count} รายการรอตรวจสอบ</span>
+            <span className="font-medium">
+              {reviewOnly
+                ? `แสดง ${data.readings.length} รายการที่รอตรวจสอบ`
+                : `${data.review_count} รายการรอตรวจสอบ`}
+            </span>
             <span className="ml-auto text-xs opacity-80">
               {reviewOnly ? "แสดงทั้งหมด" : "ดูเฉพาะรายการนี้"}
             </span>
@@ -114,7 +127,17 @@ export default function AppPage() {
         )}
       </header>
 
-      <ReadingsTable readings={data.readings} />
+      <ReadingsTable readings={data.readings} onSelect={setSelected} />
+
+      {selected && session && (
+        <ReadingDetail
+          reading={selected}
+          session={session}
+          members={data.members}
+          onClose={() => setSelected(null)}
+          onChanged={load}
+        />
+      )}
     </main>
   );
 }
