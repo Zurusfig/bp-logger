@@ -215,3 +215,38 @@ export async function bumpUsage(groupId: string, ocr = 0, triage = 0): Promise<n
   if (error) return 0; // accounting must never block a reading
   return (data as number) ?? 0;
 }
+
+// ---------------------------------------------------------------------------
+// M5: append to lib/db.ts
+// ---------------------------------------------------------------------------
+ 
+/**
+ * The sender's most recent reading within the last N minutes, used when someone
+ * types three numbers to correct a value the OCR got wrong.
+ */
+export async function recentReadingBySender(
+  senderId: string,
+  minutes = 60
+): Promise<string | null> {
+  const since = new Date(Date.now() - minutes * 60_000).toISOString();
+ 
+  const { data } = await getDb()
+    .from("readings")
+    .select("id")
+    .eq("sender_id", senderId)
+    .is("deleted_at", null)
+    .gte("posted_at", since)
+    .order("posted_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+ 
+  return data?.id ?? null;
+}
+ 
+/**
+ * completeReading currently only fills nulls in practice. For M5 it must also
+ * overwrite existing values, so make sure its update applies every key in `vals`
+ * rather than skipping ones that already have a value. The version shipped in M3
+ * already does this — no change needed, this note is here so future edits keep it.
+ */
+ 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { initLiff, apiFetch, type LiffSession } from "@/lib/liff";
 import { ReadingsTable } from "@/components/readings-table";
 import { ReadingDetail } from "@/components/reading-detail";
@@ -32,12 +33,16 @@ function fromDate(key: RangeKey, lastVisit: string | null): string {
   return "2000-01-01";
 }
 
-export default function AppPage() {
+function AppInner() {
+  const params = useSearchParams();
+  const deepLinkId = params.get("id");
+
   const [session, setSession] = useState<LiffSession | null>(null);
   const [data, setData] = useState<Payload | null>(null);
-  const [range, setRange] = useState<RangeKey>("visit");
+  const [range, setRange] = useState<RangeKey>(deepLinkId ? "all" : "visit");
   const [reviewOnly, setReviewOnly] = useState(false);
   const [selected, setSelected] = useState<ReadingDto | null>(null);
+  const [deepLinkDone, setDeepLinkDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -54,13 +59,21 @@ export default function AppPage() {
     apiFetch<Payload>(`/api/readings?${qs}`, session)
       .then(setData)
       .catch((e) => setError(String(e.message ?? e)));
-    // data.settings is deliberately not a dependency — refetching when it arrives
+    // data.settings is deliberately not a dependency: refetching when it arrives
     // would loop. The range control re-queries once a last-visit date exists.
   }, [session, range, reviewOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Opened from a bot message: jump straight to that reading, once.
+  useEffect(() => {
+    if (!deepLinkId || deepLinkDone || !data) return;
+    const match = data.readings.find((r) => r.id === deepLinkId);
+    if (match) setSelected(match);
+    setDeepLinkDone(true);
+  }, [deepLinkId, deepLinkDone, data]);
 
   if (error) {
     return (
@@ -75,11 +88,11 @@ export default function AppPage() {
   }
 
   if (!data) {
-    return <main className="mx-auto max-w-lg p-6 text-stone-500">กำลังโหลด…</main>;
+    return <main className="mx-auto max-w-lg p-6 text-stone-500">กำลังโหลด</main>;
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-lg bg-white lg:max-w-3xl ...">
+    <main className="mx-auto min-h-screen w-full max-w-lg bg-white pb-16 text-stone-900 lg:max-w-3xl">
       <header className="border-b border-stone-300 px-4 pt-4 pb-3">
         <div className="flex items-baseline justify-between">
           <h1 className="text-lg font-semibold">
@@ -139,5 +152,14 @@ export default function AppPage() {
         />
       )}
     </main>
+  );
+}
+
+export default function AppPage() {
+  // useSearchParams needs a Suspense boundary in the App Router.
+  return (
+    <Suspense fallback={<main className="p-6 text-stone-500">กำลังโหลด</main>}>
+      <AppInner />
+    </Suspense>
   );
 }

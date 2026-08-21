@@ -22,7 +22,9 @@ import {
   getPending,
   clearPending,
   bumpUsage,
+  recentReadingBySender,
 } from "./db";
+import { msgPartial, msgSaved, msgSavedUnsure, msgUnreadable, msgUpdated, msgWrongCount } from "./messages";
 
 const FIELDS = ["sys", "dia", "pulse"] as const;
 
@@ -125,7 +127,15 @@ async function handleImage(e: LineEvent): Promise<void> {
   await notify(userId, id, cleaned, ok ? null : issues.join("; "));
 }
 
-// -------------------------------------------------------------- notification
+// ---------------------------------------------------------------------------
+// M5: replace the existing notify() and handleText() in lib/worker.ts with these,
+// and add this import at the top of the file:
+//
+//   import {
+//     msgSaved, msgSavedUnsure, msgPartial, msgUnreadable,
+//     msgUpdated, msgWrongCount,
+//   } from "./messages";
+// ---------------------------------------------------------------------------
 
 async function notify(
   userId: string,
@@ -134,32 +144,27 @@ async function notify(
   validationIssue: string | null
 ): Promise<void> {
   const missing = FIELDS.filter((f) => r[f] === null);
+  const vals = { sys: r.sys, dia: r.dia, pulse: r.pulse };
 
   let text: string;
-  if (missing.length === 0 && !needsReview(r)) {
-    text = `✅ ${r.sys}/${r.dia} ชีพจร ${r.pulse} บันทึกแล้ว`;
-  } else if (missing.length === FIELDS.length) {
-    text =
-      `⚠️ อ่านไม่ออก${validationIssue ? ` (${validationIssue})` : ""}\n` +
-      `พิมพ์ตัวเลขตอบกลับได้เลย เช่น 95/50/46 หรือถ่ายใหม่`;
+  if (missing.length === FIELDS.length) {
+    text = msgUnreadable(readingId);
     await setPending(userId, readingId, [...missing]);
   } else if (missing.length > 0) {
-    const known = FIELDS.filter((f) => r[f] !== null)
-      .map((f) => `${f.toUpperCase()} ${r[f]}`)
-      .join(", ");
-    text =
-      `⚠️ อ่าน ${missing.join(", ").toUpperCase()} ไม่ออก (${known})\n` +
-      `พิมพ์แค่ตัวเลข ${missing.join(", ").toUpperCase()} ตอบกลับได้เลย`;
+    text = msgPartial(vals, [...missing], readingId);
     await setPending(userId, readingId, [...missing]);
+  } else if (needsReview(r) || validationIssue) {
+    text = msgSavedUnsure(vals, readingId);
+    // No pending state: with all three values present, a typed reply is an
+    // overwrite rather than a fill, handled by the recent-reading path below.
   } else {
-    text = `📝 ${r.sys}/${r.dia} ชีพจร ${r.pulse} บันทึกแล้ว (รอตรวจสอบ)`;
+    text = msgSaved(vals, readingId);
   }
 
   try {
     await pushMessage(userId, text);
   } catch (err) {
     if (err instanceof PushForbidden) {
-      // Not a friend of the OA. Stay silent, never fall back to the group.
       await markUnreachable(userId);
       console.warn("push forbidden, marked unreachable", { userId });
       return;
@@ -168,37 +173,65 @@ async function notify(
   }
 }
 
-// --------------------------------------------------------------------- text
-
-/** Task 3.9: typed numbers completing a failed read, 1:1 only. */
+/** Typed numbers in a 1:1 chat: fills a pending read, or overwrites a recent one. */
 async function handleText(e: LineEvent): Promise<void> {
   if (e.source.type !== "user") return; // never parse text in the group
   const userId = e.source.userId;
   const text = e.message?.text?.trim();
   if (!userId || !text) return;
 
-  const pending = await getPending(userId);
-  if (!pending) return;
-
   const nums = text.match(/\d{2,3}/g)?.map(Number) ?? [];
-  const missing = pending.missing as (typeof FIELDS)[number][];
+  if (nums.length === 0) return;
 
-  if (nums.length !== missing.length) {
-    await pushMessage(
-      userId,
-      `พิมพ์ ${missing.length} ตัวเลข (${missing.join(", ").toUpperCase()})`
-    );
+  const pending = await getPending(userId);
+
+  // Case 1: a read that came back incomplete is waiting for the missing fields.
+  if (pending) {
+    const missing = pending.missing as (typeof FIELDS)[number][];
+
+    if (nums.length !== missing.length) {
+      // Three numbers when one was asked for is a full correction, not a mistake.
+      if (nums.length === 3) {
+        await completeReading(
+          pending.reading_id,
+          { sys: nums[0], dia: nums[1], pulse: nums[2] },
+          userId
+        );
+        await clearPending(userId);
+        await pushMessage(
+          userId,
+          msgUpdated({ sys: nums[0], dia: nums[1], pulse: nums[2] })
+        );
+        return;
+      }
+      await pushMessage(userId, msgWrongCount(missing));
+      return;
+    }
+
+    const vals = Object.fromEntries(missing.map((f, i) => [f, nums[i]])) as Record<
+      string,
+      number
+    >;
+    await completeReading(pending.reading_id, vals, userId);
+    await clearPending(userId);
+    await pushMessage(userId, msgUpdated(vals));
     return;
   }
 
-  const vals = Object.fromEntries(missing.map((f, i) => [f, nums[i]])) as Record<
-    string,
-    number
-  >;
+  // Case 2: three numbers with nothing pending overwrites the sender's most recent
+  // reading, for the case where the bot read it wrong and they noticed straight away.
+  if (nums.length === 3) {
+    const recent = await recentReadingBySender(userId, 60);
+    if (recent) {
+      await completeReading(
+        recent,
+        { sys: nums[0], dia: nums[1], pulse: nums[2] },
+        userId
+      );
+      await pushMessage(userId, msgUpdated({ sys: nums[0], dia: nums[1], pulse: nums[2] }));
+      return;
+    }
+  }
 
-  await completeReading(pending.reading_id, vals, userId);
-  await clearPending(userId);
-
-  const shown = missing.map((f) => `${f.toUpperCase()} ${vals[f]}`).join(", ");
-  await pushMessage(userId, `✅ ${shown} บันทึกแล้ว`);
+  // Case 3: nothing to attach to. M5.6 turns this into a new text-only reading.
 }

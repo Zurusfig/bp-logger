@@ -1,0 +1,111 @@
+/**
+ * Every user-facing string the bot sends, in one place.
+ *
+ * House style: status line, then values, then the one thing to do. Statements only,
+ * no questions, no emoji, no dashes. Examples are built from the reading's own
+ * numbers so the expected format is never abstract.
+ */
+
+export type Vals = {
+  sys: number | null;
+  dia: number | null;
+  pulse: number | null;
+};
+
+const FIELD_LABEL: Record<string, string> = {
+  sys: "SYS",
+  dia: "DIA",
+  pulse: "ชีพจร",
+};
+
+export function editLink(readingId: string): string | null {
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+  if (!liffId) return null;
+  return `https://liff.line.me/${liffId}?id=${readingId}`;
+}
+
+/** "SYS 95  DIA 50  ชีพจร 46", skipping anything unread. */
+function valueLine(v: Vals): string {
+  return (["sys", "dia", "pulse"] as const)
+    .filter((f) => v[f] !== null)
+    .map((f) => `${FIELD_LABEL[f]} ${v[f]}`)
+    .join("  ");
+}
+
+function withLink(lines: string[], readingId: string, verb: string): string {
+  const link = editLink(readingId);
+  if (link) lines.push(`${verb} ${link}`);
+  return lines.join("\n");
+}
+
+/** Read cleanly and confidently. */
+export function msgSaved(v: Vals, readingId: string): string {
+  return withLink(["บันทึกแล้ว", valueLine(v)], readingId, "แก้ไข");
+}
+
+/** Saved, but the model was not confident. Show how to overwrite by text. */
+export function msgSavedUnsure(v: Vals, readingId: string): string {
+  const example = `${v.sys}/${v.dia}/${v.pulse}`;
+  return withLink(
+    [
+      "บันทึกแล้ว รอการตรวจสอบ",
+      valueLine(v),
+      `ถ้าไม่ตรง พิมพ์ค่าใหม่ตอบกลับ เช่น ${example}`,
+    ],
+    readingId,
+    "หรือแก้ไขที่"
+  );
+}
+
+/** Some fields readable, at least one not. */
+export function msgPartial(v: Vals, missing: string[], readingId: string): string {
+  const labels = missing.map((f) => FIELD_LABEL[f]).join(" ");
+  const example = missing.length === 1 ? exampleFor(missing[0]) : "95/50/46";
+
+  return withLink(
+    [
+      `บันทึกไม่ครบ อ่านค่า ${labels} ไม่ได้`,
+      valueLine(v),
+      `พิมพ์ค่า ${labels} ตอบกลับ เช่น ${example}`,
+    ],
+    readingId,
+    "หรือแก้ไขที่"
+  );
+}
+
+/** Nothing readable at all. */
+export function msgUnreadable(readingId: string): string {
+  return withLink(
+    ["อ่านค่าจากรูปไม่ได้", "พิมพ์ค่าตอบกลับ เช่น 95/50/46", "หรือถ่ายรูปใหม่"],
+    readingId,
+    "หรือแก้ไขที่"
+  );
+}
+
+/** Confirmation after the sender typed the missing numbers. */
+export function msgUpdated(patched: Partial<Vals>): string {
+  const line = (["sys", "dia", "pulse"] as const)
+    .filter((f) => patched[f] != null)
+    .map((f) => `${FIELD_LABEL[f]} ${patched[f]}`)
+    .join("  ");
+  return ["อัปเดตแล้ว", line].join("\n");
+}
+
+/** Typed entry with no photo attached. */
+export function msgTypedEntry(v: Vals, readingId: string): string {
+  return withLink(["บันทึกแล้ว (พิมพ์เอง)", valueLine(v)], readingId, "แก้ไข");
+}
+
+/** Wrong number of values typed. */
+export function msgWrongCount(missing: string[]): string {
+  const labels = missing.map((f) => FIELD_LABEL[f]).join(" ");
+  const example = missing.length === 1 ? exampleFor(missing[0]) : "95/50/46";
+  return [`ต้องการค่า ${labels}`, `พิมพ์ตอบกลับ เช่น ${example}`].join("\n");
+}
+
+/** A plausible single value, so the example never looks like a placeholder. */
+function exampleFor(field: string): string {
+  if (field === "sys") return "120";
+  if (field === "dia") return "70";
+  return "60";
+}
