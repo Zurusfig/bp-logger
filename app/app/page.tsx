@@ -79,7 +79,7 @@ export default function AppPage() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-lg bg-white pb-16 text-stone-900">
+    <main className="mx-auto min-h-screen w-full max-w-lg bg-white lg:max-w-3xl ...">
       <header className="border-b border-stone-300 px-4 pt-4 pb-3">
         <div className="flex items-baseline justify-between">
           <h1 className="text-lg font-semibold">
