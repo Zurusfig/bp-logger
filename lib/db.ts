@@ -1,17 +1,26 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import type { Reading } from "./ocr";
 import type { Slot } from "./slot";
 
+let _db: SupabaseClient | null = null;
+
 /**
- * Server-side only. Uses the service key, which bypasses RLS — this module must
- * never be imported into anything that ships to the client.
+ * Lazy on purpose. Next.js collects page data at build time, which imports this
+ * module before any env vars exist — constructing the client at module scope makes
+ * the production build fail with "supabaseUrl is required".
+ *
+ * Server-side only: the service key bypasses RLS, so this must never be imported
+ * into anything that ships to the client.
  */
-export const db = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!,
-  { auth: { persistSession: false } }
-);
+export function getDb(): SupabaseClient {
+  if (_db) return _db;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY;
+  if (!url || !key) throw new Error("SUPABASE_URL / SUPABASE_SERVICE_KEY not set");
+  _db = createClient(url, key, { auth: { persistSession: false } });
+  return _db;
+}
 
 export const BUCKET = "readings";
 
@@ -21,7 +30,7 @@ export function hashImage(buf: Buffer): string {
 
 /** FR-9.2: a household exists as soon as the bot sees its group. */
 export async function ensureHousehold(groupId: string): Promise<void> {
-  await db.from("settings").upsert({ group_id: groupId }, { onConflict: "group_id" });
+  await getDb().from("settings").upsert({ group_id: groupId }, { onConflict: "group_id" });
 }
 
 /** FR-9.2: anyone who posts is enrolled automatically — no join code. */
@@ -31,18 +40,20 @@ export async function ensureMember(
   displayName?: string
 ): Promise<void> {
   await ensureHousehold(groupId);
-  await db.from("members").upsert(
-    {
-      user_id: userId,
-      group_id: groupId,
-      ...(displayName ? { display_name: displayName } : {}),
-    },
-    { onConflict: "user_id" }
-  );
+  await getDb()
+    .from("members")
+    .upsert(
+      {
+        user_id: userId,
+        group_id: groupId,
+        ...(displayName ? { display_name: displayName } : {}),
+      },
+      { onConflict: "user_id" }
+    );
 }
 
 export async function memberGroup(userId: string): Promise<string | null> {
-  const { data } = await db
+  const { data } = await getDb()
     .from("members")
     .select("group_id")
     .eq("user_id", userId)
@@ -52,12 +63,12 @@ export async function memberGroup(userId: string): Promise<string | null> {
 
 /** Push returned 403 — stop trying until they add the OA as a friend. */
 export async function markUnreachable(userId: string): Promise<void> {
-  await db.from("members").update({ notify_ok: false }).eq("user_id", userId);
+  await getDb().from("members").update({ notify_ok: false }).eq("user_id", userId);
 }
 
 /** FR-1.6: the same image posted twice. Two readings minutes apart are NOT duplicates. */
 export async function findByHash(groupId: string, hash: string): Promise<string | null> {
-  const { data } = await db
+  const { data } = await getDb()
     .from("readings")
     .select("id")
     .eq("group_id", groupId)
@@ -74,15 +85,15 @@ export async function uploadImage(
   contentType = "image/jpeg"
 ): Promise<string> {
   const path = `${groupId}/${readingId}.jpg`;
-  const { error } = await db.storage
-    .from(BUCKET)
+  const { error } = await getDb()
+    .storage.from(BUCKET)
     .upload(path, buf, { contentType, upsert: true });
   if (error) throw new Error(`storage upload failed: ${error.message}`);
   return path;
 }
 
 export async function signedImageUrl(path: string, seconds = 300): Promise<string | null> {
-  const { data } = await db.storage.from(BUCKET).createSignedUrl(path, seconds);
+  const { data } = await getDb().storage.from(BUCKET).createSignedUrl(path, seconds);
   return data?.signedUrl ?? null;
 }
 
@@ -101,7 +112,7 @@ export async function insertReading(row: {
   reviewNote?: string | null;
 }): Promise<string> {
   const r = row.reading;
-  const { data, error } = await db
+  const { data, error } = await getDb()
     .from("readings")
     .insert({
       group_id: row.groupId,
@@ -130,7 +141,7 @@ export async function insertReading(row: {
 }
 
 export async function setImagePath(id: string, path: string): Promise<void> {
-  await db.from("readings").update({ image_path: path }).eq("id", id);
+  await getDb().from("readings").update({ image_path: path }).eq("id", id);
 }
 
 /** Fill the fields a failed OCR left null, from numbers the sender typed. */
@@ -147,7 +158,7 @@ export async function completeReading(
     edited_at: now,
   };
 
-  const { data } = await db.from("readings").select("sys,dia,pulse").eq("id", id).single();
+  const { data } = await getDb().from("readings").select("sys,dia,pulse").eq("id", id).single();
   const merged = { ...data, ...vals } as Record<string, number | null>;
 
   if (merged.sys != null && merged.dia != null && merged.pulse != null) {
@@ -156,7 +167,7 @@ export async function completeReading(
     patch.reviewed_at = now;
   }
 
-  await db.from("readings").update(patch).eq("id", id);
+  await getDb().from("readings").update(patch).eq("id", id);
 }
 
 // ------------------------------------------------------------------ pending
@@ -167,7 +178,7 @@ export async function setPending(
   missing: string[],
   minutes = 30
 ): Promise<void> {
-  await db.from("pending").upsert({
+  await getDb().from("pending").upsert({
     user_id: userId,
     reading_id: readingId,
     missing,
@@ -178,7 +189,7 @@ export async function setPending(
 export async function getPending(
   userId: string
 ): Promise<{ reading_id: string; missing: string[] } | null> {
-  const { data } = await db
+  const { data } = await getDb()
     .from("pending")
     .select("reading_id,missing,expires_at")
     .eq("user_id", userId)
@@ -193,14 +204,14 @@ export async function getPending(
 }
 
 export async function clearPending(userId: string): Promise<void> {
-  await db.from("pending").delete().eq("user_id", userId);
+  await getDb().from("pending").delete().eq("user_id", userId);
 }
 
 // -------------------------------------------------------------------- usage
 
 /** Returns today's OCR call count after adding this one. Backs the daily cap. */
 export async function bumpUsage(groupId: string, ocr = 0, triage = 0): Promise<number> {
-  const { data, error } = await db.rpc("bump_usage", { g: groupId, ocr, triage });
+  const { data, error } = await getDb().rpc("bump_usage", { g: groupId, ocr, triage });
   if (error) return 0; // accounting must never block a reading
   return (data as number) ?? 0;
 }
