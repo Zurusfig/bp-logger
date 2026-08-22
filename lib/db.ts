@@ -52,6 +52,16 @@ export async function ensureMember(
     );
 }
 
+/**
+ * Known limitation: members.user_id is the primary key, so one LINE user can
+ * belong to only one household at a time. ensureMember() upserts on that same
+ * key, so someone enrolled in two allowed groups (e.g. a test group and the real
+ * family group) just gets moved to whichever group they most recently posted or
+ * opened LIFF in — this returns that group, not necessarily the one the caller
+ * has in mind. A clean fix would drop the PK to (user_id, group_id) and store a
+ * "current household" pointer for the 1:1-context lookup, but that's a schema
+ * change and out of scope here.
+ */
 export async function memberGroup(userId: string): Promise<string | null> {
   const { data } = await getDb()
     .from("members")
@@ -59,6 +69,22 @@ export async function memberGroup(userId: string): Promise<string | null> {
     .eq("user_id", userId)
     .maybeSingle();
   return data?.group_id ?? null;
+}
+
+export type Member = {
+  user_id: string;
+  display_name: string | null;
+  notify_ok: boolean;
+  notify_all: boolean;
+};
+
+/** Every member of a household, for the notification fan-out. */
+export async function groupMembers(groupId: string): Promise<Member[]> {
+  const { data } = await getDb()
+    .from("members")
+    .select("user_id,display_name,notify_ok,notify_all")
+    .eq("group_id", groupId);
+  return (data as Member[]) ?? [];
 }
 
 /** The household's configured slots, for deriveSlot(). Null falls back to DEFAULT_SLOTS. */

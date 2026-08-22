@@ -8,10 +8,12 @@ import {
 import { couldBeBpPhoto, isBpDisplay, DAILY_CALL_CAP } from "./prefilter";
 import { readDisplayCorrected, validate, needsReview, type Reading } from "./ocr";
 import { deriveSlot } from "./slot";
+import { isAllowedGroup as allowedGroup } from "./groups";
 import {
   ensureMember,
   memberGroup,
   markUnreachable,
+  groupMembers,
   hashImage,
   findByHash,
   insertReading,
@@ -29,21 +31,17 @@ import {
   msgPartial,
   msgSaved,
   msgSavedUnsure,
+  msgSavedByOther,
+  msgSavedUnsureByOther,
   msgUnreadable,
   msgUpdated,
   msgWrongCount,
   msgTypedEntry,
+  msgTypedEntryByOther,
   msgInvalidEntry,
 } from "./messages";
 
 const FIELDS = ["sys", "dia", "pulse"] as const;
-
-/** Only this household's group is processed. Everything else is ignored outright. */
-function allowedGroup(groupId?: string): boolean {
-  const allow = process.env.ALLOWED_GROUP_ID;
-  if (!allow) return true; // unset = accept any group (self-hosters)
-  return groupId === allow;
-}
 
 export async function processEvents(events: LineEvent[]): Promise<void> {
   // One bad event must never kill the rest of the batch.
@@ -161,7 +159,7 @@ async function handleImage(e: LineEvent): Promise<void> {
     console.error("image upload failed", { id, err: String(err) });
   }
 
-  await notify(userId, id, cleaned, ok ? null : issues.join("; "));
+  await notify(groupId, userId, id, cleaned, ok ? null : issues.join("; "));
 }
 
 // ---------------------------------------------------------------------------
@@ -174,7 +172,49 @@ async function handleImage(e: LineEvent): Promise<void> {
 //   } from "./messages";
 // ---------------------------------------------------------------------------
 
+/**
+ * Pushes the same reading to every other household member who wants to hear
+ * about it (notify_ok AND notify_all). Runs concurrently and never throws — a
+ * lookup failure, a build failure, or one member's push failing must never take
+ * down the others or bubble up to the caller, since the reading is already saved
+ * by the time this runs.
+ */
+async function notifyHousehold(
+  groupId: string,
+  senderId: string,
+  build: (senderName?: string | null) => string
+): Promise<void> {
+  try {
+    const members = await groupMembers(groupId);
+    const others = members.filter(
+      (m) => m.user_id !== senderId && m.notify_ok && m.notify_all
+    );
+    if (others.length === 0) return;
+
+    const sender = members.find((m) => m.user_id === senderId);
+    const text = build(sender?.display_name);
+
+    await Promise.allSettled(
+      others.map(async (m) => {
+        try {
+          await pushMessage(m.user_id, text);
+        } catch (err) {
+          if (err instanceof PushForbidden) {
+            await markUnreachable(m.user_id);
+            console.warn("push forbidden, marked unreachable", { userId: m.user_id });
+          } else {
+            console.error("household push failed", { userId: m.user_id, err: String(err) });
+          }
+        }
+      })
+    );
+  } catch (err) {
+    console.error("household fanout failed", { groupId, senderId, err: String(err) });
+  }
+}
+
 async function notify(
+  groupId: string,
   userId: string,
   readingId: string,
   r: Reading,
@@ -184,6 +224,11 @@ async function notify(
   const vals = { sys: r.sys, dia: r.dia, pulse: r.pulse };
 
   let text: string;
+  // Set only when this state should fan out to the rest of the household: a
+  // reading saved cleanly, or saved but flagged for review. Prompts for missing
+  // values and unreadable-photo retries stay 1:1 with the sender.
+  let fanOut: ((senderName?: string | null) => string) | null = null;
+
   if (missing.length === FIELDS.length) {
     text = msgUnreadable(readingId);
     await setPending(userId, readingId, [...missing]);
@@ -194,20 +239,29 @@ async function notify(
     text = msgSavedUnsure(vals, readingId);
     // No pending state: with all three values present, a typed reply is an
     // overwrite rather than a fill, handled by the recent-reading path below.
+    fanOut = (name) => msgSavedUnsureByOther(vals, readingId, name);
   } else {
     text = msgSaved(vals, readingId);
+    fanOut = (name) => msgSavedByOther(vals, readingId, name);
   }
 
+  // The sender's own push failing (e.g. they blocked the OA) must not skip
+  // notifying the rest of the household, so it's tracked and rethrown after —
+  // not before — the fan-out runs.
+  let senderErr: unknown = null;
   try {
     await pushMessage(userId, text);
   } catch (err) {
     if (err instanceof PushForbidden) {
       await markUnreachable(userId);
       console.warn("push forbidden, marked unreachable", { userId });
-      return;
+    } else {
+      senderErr = err;
     }
-    throw err;
   }
+
+  if (fanOut) await notifyHousehold(groupId, userId, fanOut);
+  if (senderErr) throw senderErr;
 }
 
 // -------------------------------------------------------------- typed entry
@@ -289,6 +343,9 @@ async function handleGroupText(e: LineEvent): Promise<void> {
     return;
   }
   await pushMessage(userId, msgTypedEntry(vals, result.id));
+  await notifyHousehold(groupId, userId, (name) =>
+    msgTypedEntryByOther(vals, result.id, name)
+  );
 }
 
 /** Typed numbers in a 1:1 chat: fills a pending read, or overwrites a recent one. */
@@ -361,5 +418,8 @@ async function handleDirectText(e: LineEvent): Promise<void> {
       return;
     }
     await pushMessage(userId, msgTypedEntry(vals, result.id));
+    await notifyHousehold(groupId, userId, (name) =>
+      msgTypedEntryByOther(vals, result.id, name)
+    );
   }
 }

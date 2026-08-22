@@ -1,4 +1,5 @@
 import { memberGroup, ensureMember } from "./db";
+import { isAllowedGroup } from "./groups";
 
 /**
  * Verifies a LIFF ID token with LINE and returns the LINE user id.
@@ -48,10 +49,8 @@ export async function resolveSession(
   const userId = await verifyIdToken(idToken);
   if (!userId) return null;
 
-  const allowed = process.env.ALLOWED_GROUP_ID;
-
   if (contextGroupId) {
-    if (allowed && contextGroupId !== allowed) return null;
+    if (!isAllowedGroup(contextGroupId)) return null;
     // Opened from inside the group: enrol them so they stay reachable afterwards.
     await ensureMember(contextGroupId, userId, displayName);
     return { userId, groupId: contextGroupId, displayName };
@@ -59,7 +58,7 @@ export async function resolveSession(
 
   const groupId = await memberGroup(userId);
   if (!groupId) return null; // not a member of any household yet
-  if (allowed && groupId !== allowed) return null;
+  if (!isAllowedGroup(groupId)) return null;
 
   return { userId, groupId, displayName };
 }
