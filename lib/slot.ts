@@ -1,10 +1,27 @@
-export type Slot = "morning" | "evening";
+export type SlotDef = {
+  key: string;
+  label: string;
+  /** Local "HH:MM" at which this slot begins. */
+  from: string;
+};
 
-/** Anything before this local hour belongs to the previous night's evening slot. */
-const NIGHT_CUTOFF_HOUR = 3;
+export const DEFAULT_SLOTS: SlotDef[] = [
+  { key: "wake", label: "ตื่นนอน", from: "04:00" },
+  { key: "after_med", label: "หลังยาเช้า", from: "08:30" },
+  { key: "bedtime", label: "ก่อนนอน", from: "15:00" },
+];
 
-/** Local hour at which morning becomes evening. */
-const MIDDAY_HOUR = 12;
+function minutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/** Slots sorted by start time, so window lookup is a simple scan. */
+export function normalise(slots: SlotDef[]): SlotDef[] {
+  const clean = slots.filter((s) => s.key && /^\d{1,2}:\d{2}$/.test(s.from));
+  if (clean.length === 0) return DEFAULT_SLOTS;
+  return [...clean].sort((a, b) => minutes(a.from) - minutes(b.from));
+}
 
 function localParts(at: Date, tz: string) {
   const fmt = new Intl.DateTimeFormat("en-CA", {
@@ -19,7 +36,7 @@ function localParts(at: Date, tz: string) {
   const p = Object.fromEntries(fmt.formatToParts(at).map((x) => [x.type, x.value]));
   return {
     date: `${p.year}-${p.month}-${p.day}`,
-    hour: Number(p.hour === "24" ? "0" : p.hour),
+    mins: Number(p.hour === "24" ? 0 : p.hour) * 60 + Number(p.minute),
   };
 }
 
@@ -30,21 +47,45 @@ function shiftDate(iso: string, days: number): string {
 }
 
 /**
- * A "before bed" reading taken at 00:20 has tomorrow's calendar date but belongs to
- * tonight's evening slot. reading_date is the day the doctor's table should show it
- * under; taken_at stays the true timestamp.
+ * Assigns a reading to a slot and to the day the report should file it under.
+ *
+ * A reading before the first slot's start belongs to the previous day's last slot,
+ * so a "before bed" measurement taken at 00:20 does not create a phantom entry on
+ * the following morning.
+ *
+ * Clock windows are a best guess. Slots that sit close together (waking versus
+ * after morning medicine) will sometimes land in the wrong one, which is why the
+ * slot stays editable on every row.
  */
 export function deriveSlot(
   takenAt: Date,
+  slots: SlotDef[] = DEFAULT_SLOTS,
   tz = "Asia/Bangkok"
-): { slot: Slot; reading_date: string } {
-  const { date, hour } = localParts(takenAt, tz);
+): { slot: string; reading_date: string } {
+  const defs = normalise(slots);
+  const { date, mins } = localParts(takenAt, tz);
 
-  if (hour < NIGHT_CUTOFF_HOUR) {
-    return { slot: "evening", reading_date: shiftDate(date, -1) };
+  if (mins < minutes(defs[0].from)) {
+    return { slot: defs[defs.length - 1].key, reading_date: shiftDate(date, -1) };
   }
-  return {
-    slot: hour < MIDDAY_HOUR ? "morning" : "evening",
-    reading_date: date,
-  };
+
+  let chosen = defs[0];
+  for (const s of defs) {
+    if (mins >= minutes(s.from)) chosen = s;
+    else break;
+  }
+
+  return { slot: chosen.key, reading_date: date };
+}
+
+export function slotLabel(key: string | null, slots: SlotDef[] = DEFAULT_SLOTS): string {
+  if (!key) return "";
+  return slots.find((s) => s.key === key)?.label ?? key;
+}
+
+/** Sort order for display, so a day's readings run in slot order. */
+export function slotIndex(key: string | null, slots: SlotDef[] = DEFAULT_SLOTS): number {
+  if (!key) return 999;
+  const i = normalise(slots).findIndex((s) => s.key === key);
+  return i === -1 ? 999 : i;
 }
