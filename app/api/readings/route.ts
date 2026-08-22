@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export type ReadingDto = {
   id: string;
   taken_at: string;
-    slot: string | null;
+  slot: string | null;
   reading_date: string | null;
   sys: number | null;
   dia: number | null;
@@ -29,13 +29,20 @@ export type ReadingDto = {
  */
 export async function GET(req: Request) {
   const session = await sessionFromRequest(req);
-  if (!session) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!session)
+    return Response.json({ error: "unauthorized" }, { status: 401 });
 
   const url = new URL(req.url);
-  const to = url.searchParams.get("to") ?? new Date().toISOString().slice(0, 10);
-  const from =
-    url.searchParams.get("from") ??
-    new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+  const isDate = (v: string | null): v is string =>
+    !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+  const rawTo = url.searchParams.get("to");
+  const rawFrom = url.searchParams.get("from");
+
+  const to = isDate(rawTo) ? rawTo : new Date().toISOString().slice(0, 10);
+  const from = isDate(rawFrom)
+    ? rawFrom
+    : new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
   const reviewOnly = url.searchParams.get("review") === "1";
   const withImages = url.searchParams.get("images") === "1";
 
@@ -43,7 +50,7 @@ export async function GET(req: Request) {
     .from("readings")
     .select(
       "id,taken_at,slot,reading_date,sys,dia,pulse,irregular_flag," +
-        "needs_review,review_note,confidence,sender_id,source,image_path"
+        "needs_review,review_note,confidence,sender_id,source,image_path",
     )
     .eq("group_id", session.groupId)
     .is("deleted_at", null)
@@ -73,8 +80,9 @@ export async function GET(req: Request) {
       sender_id: r.sender_id,
       source: r.source,
       has_image: !!r.image_path,
-      image_url: withImages && r.image_path ? await signedImageUrl(r.image_path) : null,
-    }))
+      image_url:
+        withImages && r.image_path ? await signedImageUrl(r.image_path) : null,
+    })),
   );
 
   const { data: members } = await getDb()
@@ -91,7 +99,7 @@ export async function GET(req: Request) {
   return Response.json({
     readings: rows,
     members: Object.fromEntries(
-      (members ?? []).map((m: any) => [m.user_id, m.display_name ?? ""])
+      (members ?? []).map((m: any) => [m.user_id, m.display_name ?? ""]),
     ),
     settings: settings ?? null,
     range: { from, to },

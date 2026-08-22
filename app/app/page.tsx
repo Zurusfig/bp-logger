@@ -7,11 +7,16 @@ import { Nav } from "@/components/nav";
 import { ReadingsTable } from "@/components/readings-table";
 import { ReadingDetail } from "@/components/reading-detail";
 import type { ReadingDto } from "@/app/api/readings/route";
+import { DEFAULT_SLOTS, SlotDef } from "@/lib/slot";
 
 type Payload = {
   readings: ReadingDto[];
   members: Record<string, string>;
-  settings: { patient_name: string | null; last_visit_date: string | null } | null;
+  settings: {
+    patient_name: string | null;
+    last_visit_date: string | null;
+    slots?: SlotDef[];
+  } | null;
   range: { from: string; to: string };
   review_count: number;
 };
@@ -55,7 +60,10 @@ function AppInner() {
   const load = useCallback(() => {
     if (!session) return;
     const from = fromDate(range, data?.settings?.last_visit_date ?? null);
-    const qs = new URLSearchParams({ from, ...(reviewOnly ? { review: "1" } : {}) });
+    const qs = new URLSearchParams({
+      from,
+      ...(reviewOnly ? { review: "1" } : {}),
+    });
 
     apiFetch<Payload>(`/api/readings?${qs}`, session)
       .then(setData)
@@ -89,7 +97,9 @@ function AppInner() {
   }
 
   if (!data) {
-    return <main className="mx-auto max-w-lg p-6 text-stone-500">กำลังโหลด</main>;
+    return (
+      <main className="mx-auto max-w-lg p-6 text-stone-500">กำลังโหลด</main>
+    );
   }
 
   return (
@@ -99,7 +109,9 @@ function AppInner() {
           <h1 className="text-lg font-semibold">
             {data.settings?.patient_name ?? "ความดันโลหิต"}
           </h1>
-          <span className="text-sm text-stone-500">{data.readings.length} ครั้ง</span>
+          <span className="text-sm text-stone-500">
+            {data.readings.length} ครั้ง
+          </span>
         </div>
 
         <div className="mt-3 flex gap-2 overflow-x-auto">
@@ -143,7 +155,11 @@ function AppInner() {
 
       <Nav />
 
-      <ReadingsTable readings={data.readings} onSelect={setSelected} />
+      <ReadingsTable
+        readings={data.readings}
+        slots={data.settings?.slots ?? DEFAULT_SLOTS}
+        onSelect={setSelected}
+      />
 
       {selected && session && (
         <ReadingDetail

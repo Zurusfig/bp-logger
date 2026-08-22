@@ -39,7 +39,7 @@ export default function ReportPage() {
   const load = useCallback(
     async (f?: string, t?: string) => {
       if (!session) return;
-      const qs = new URLSearchParams({ from: f ?? from ?? days(30), to: t ?? to });
+      const qs = new URLSearchParams({ from: f || days(30), to: t || today() });
       try {
         const p = await apiFetch<Payload>(`/api/readings?${qs}`, session);
         setData(p);
@@ -48,7 +48,7 @@ export default function ReportPage() {
         setError(String(e.message ?? e));
       }
     },
-    [session, from, to]
+    [session, from, to],
   );
 
   useEffect(() => {
@@ -97,7 +97,9 @@ export default function ReportPage() {
     );
   }
   if (!data) {
-    return <main className="mx-auto max-w-lg p-6 text-stone-500">กำลังโหลด</main>;
+    return (
+      <main className="mx-auto max-w-lg p-6 text-stone-500">กำลังโหลด</main>
+    );
   }
 
   return (
