@@ -64,9 +64,19 @@ export async function apiFetch<T>(
     },
   });
 
-  if (!res.ok) {
+    if (res.status === 401 && !sessionStorage.getItem("liff-retried")) {
+    sessionStorage.setItem("liff-retried", "1");
+    const mod = await import("@line/liff");
+    mod.default.logout();
+    mod.default.login();
+    return new Promise<T>(() => {});
+  }
+
+    if (!res.ok) {
     const body = await res.text();
     throw new Error(`${res.status}: ${body.slice(0, 200)}`);
   }
+
+  sessionStorage.removeItem("liff-retried");
   return (await res.json()) as T;
 }
