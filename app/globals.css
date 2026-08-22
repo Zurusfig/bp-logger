@@ -1,37 +1,102 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Design tokens
+   A near-monochrome ink-on-paper system with exactly one accent, reserved for
+   the "needs review" state. Spacing follows Tailwind's default 4px scale
+   (space-4 below = the same 1rem used by utilities like p-4, mt-4, ...); the
+   names exist so the rhythm is legible in one place rather than re-derived
+   from scattered utility classes.
+   --------------------------------------------------------------------------- */
+
+@theme {
+  /* Declared under @theme (not :root) so Tailwind also generates the
+     matching bg-/text-/border- utilities (bg-paper, text-ink-muted, ...). */
+  --color-ink: #211f1c;
+  --color-ink-muted: #6b655d;
+  --color-ink-faint: #938c7e;
+  --color-paper: #faf8f4;
+  --color-rule: #e2dcd1;
+  --color-rule-strong: #cabfae;
+  --color-accent: #b45309;
+  --color-accent-strong: #8a3f07;
+  --color-accent-soft: #fdf1de;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --space-1: 0.25rem; /* 4px  hairline gaps: icon-to-label, digit grouping */
+  --space-2: 0.5rem; /* 8px  tight padding, badge padding */
+  --space-3: 0.75rem; /* 12px row internal gaps */
+  --space-4: 1rem; /* 16px base content padding */
+  --space-5: 1.5rem; /* 24px subsection spacing */
+  --space-6: 2rem; /* 32px section breaks (day headings) */
+  --space-8: 3rem; /* 48px page-level spacing, empty states */
+
+  --duration-instant: 100ms; /* press feedback */
+  --duration-fast: 150ms; /* backdrop fade, chip/toggle state, row fade-in */
+  --duration-base: 200ms; /* detail sheet slide */
+  --duration-shimmer: 2000ms; /* skeleton pulse */
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-background: var(--color-paper);
+  --color-foreground: var(--color-ink);
+  --font-sans: var(--font-anuphan), "Noto Sans Thai", -apple-system, "Helvetica Neue", sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thai vowel/tone marks stack above and below the letter; Latin line-heights
+   are too tight for that and marks from adjacent lines collide. */
+body {
+  line-height: 1.6;
 }
 
 /* ---------------------------------------------------------------------------
-   M6: append to app/globals.css
+   Skeleton loading state
+   Opacity-only pulse, no moving highlight. Two seconds per cycle so it reads
+   as "still working" rather than an error or a spinner.
    --------------------------------------------------------------------------- */
 
-body {
-  background: #f5f5f4;
-  color: #1c1917;
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.skeleton {
+  background: var(--color-rule);
+  border-radius: 0.25rem;
+  animation: skeleton-pulse var(--duration-shimmer) ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @media print {
@@ -73,5 +138,17 @@ body {
   * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  /* Motion and loading placeholders never belong on paper. */
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .skeleton {
+    display: none !important;
   }
 }

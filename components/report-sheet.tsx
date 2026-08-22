@@ -10,8 +10,16 @@ import { normalise, type SlotDef } from "@/lib/slot";
  * A flat one-row-per-reading table would run to three pages for the same range.
  *
  * Colours are hex on purpose: this element is rasterised to PNG, and the canvas
- * library cannot parse the oklch() values Tailwind emits.
+ * library cannot parse the oklch() values Tailwind emits. The hex values below
+ * mirror the app's ink/paper/rule tokens in app/globals.css so the printed sheet
+ * and the on-screen app read as the same document.
  */
+
+const INK = "#211f1c";
+const INK_MUTED = "#6b655d";
+const INK_FAINT = "#938c7e";
+const RULE = "#cabfae";
+const HEADER_TINT = "#f4f1ea";
 
 const TH_MONTHS = [
   "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
@@ -64,19 +72,22 @@ export const ReportSheet = forwardRef<HTMLDivElement, ReportProps>(function Repo
   const dates = [...byDate.keys()].sort(); // oldest first, as a diary reads
   const pending = readings.filter((r) => r.needs_review).length;
 
-  const border = "1px solid #c9c9c4";
+  const border = `1px solid ${RULE}`;
   const th: React.CSSProperties = {
     border,
     padding: "4px 6px",
     fontWeight: 600,
     fontSize: "11pt",
-    background: "#f0efec",
+    lineHeight: 1.5,
+    background: HEADER_TINT,
+    color: INK,
     textAlign: "center",
   };
   const td: React.CSSProperties = {
     border,
     padding: "3px 6px",
     fontSize: "11pt",
+    lineHeight: 1.45,
     textAlign: "center",
     verticalAlign: "top",
     fontVariantNumeric: "tabular-nums",
@@ -87,18 +98,22 @@ export const ReportSheet = forwardRef<HTMLDivElement, ReportProps>(function Repo
       ref={ref}
       style={{
         background: "#ffffff",
-        color: "#14140f",
+        color: INK,
         padding: "16px",
         width: "100%",
-        fontFamily:
-          '"Noto Sans Thai", "Sarabun", -apple-system, "Helvetica Neue", sans-serif',
+        lineHeight: 1.5,
+        // References the CSS variable next/font generates (see app/layout.tsx),
+        // not a literal family name: "Anuphan" is self-hosted under a hashed
+        // font-family, so naming it directly here would silently fall through
+        // to the system default instead of the loaded webfont.
+        fontFamily: "var(--font-sans)",
       }}
     >
       <div style={{ marginBottom: 10 }}>
-        <div style={{ fontSize: "15pt", fontWeight: 700 }}>
+        <div style={{ fontSize: "16pt", fontWeight: 700 }}>
           บันทึกความดันโลหิต{patientName ? ` ${patientName}` : ""}
         </div>
-        <div style={{ fontSize: "11pt", marginTop: 2 }}>
+        <div style={{ fontSize: "11pt", marginTop: 4, color: INK_MUTED }}>
           {thaiFull(from)} ถึง {thaiFull(to)} รวม {readings.length} ครั้ง
         </div>
       </div>
@@ -125,19 +140,16 @@ export const ReportSheet = forwardRef<HTMLDivElement, ReportProps>(function Repo
                 return (
                   <td key={s.key} style={td}>
                     {rows.length === 0 ? (
-                      <span style={{ color: "#b6b6b0" }}>-</span>
+                      <span style={{ color: INK_FAINT }}>-</span>
                     ) : (
                       rows.map((r) => (
                         <div key={r.id} style={{ whiteSpace: "nowrap" }}>
-                          <span style={{ fontWeight: 600 }}>
+                          <span style={{ fontSize: "12pt", fontWeight: 600, color: INK }}>
                             {r.sys ?? "?"}/{r.dia ?? "?"}
                           </span>{" "}
-                          <span style={{ color: "#4a4a44" }}>({r.pulse ?? "?"})</span>
+                          <span style={{ color: INK_MUTED }}>({r.pulse ?? "?"})</span>
                           {r.needs_review ? "*" : ""}
-                          <span style={{ color: "#8a8a84", fontSize: "9pt" }}>
-                            {" "}
-                            {bkkTime(r.taken_at)}
-                          </span>
+                          <span style={{ color: INK_FAINT }}> {bkkTime(r.taken_at)}</span>
                         </div>
                       ))
                     )}
@@ -149,7 +161,7 @@ export const ReportSheet = forwardRef<HTMLDivElement, ReportProps>(function Repo
         </tbody>
       </table>
 
-      <div style={{ marginTop: 8, fontSize: "9.5pt", color: "#4a4a44" }}>
+      <div style={{ marginTop: 10, fontSize: "11pt", color: INK_MUTED }}>
         ตัวเลขในวงเล็บคือชีพจร
         {pending > 0 ? ` เครื่องหมาย * คือรายการที่ยังไม่ได้ตรวจสอบ (${pending} รายการ)` : ""}
       </div>

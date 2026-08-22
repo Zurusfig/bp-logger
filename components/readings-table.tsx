@@ -1,5 +1,6 @@
 "use client";
 
+import { HeartPulse } from "lucide-react";
 import type { ReadingDto } from "@/app/api/readings/route";
 import { DEFAULT_SLOTS, normalise, slotLabel, type SlotDef } from "@/lib/slot";
 
@@ -58,7 +59,7 @@ function group(readings: ReadingDto[], slots: SlotDef[]): DayGroup[] {
 }
 
 function Value({ v }: { v: number | null }) {
-  if (v === null) return <span className="text-stone-300">-</span>;
+  if (v === null) return <span className="text-ink-faint">-</span>;
   return <>{v}</>;
 }
 
@@ -73,29 +74,31 @@ export function ReadingsTable({
 }) {
   if (readings.length === 0) {
     return (
-      <p className="px-4 py-16 text-center text-stone-500">ยังไม่มีข้อมูลในช่วงนี้</p>
+      <p className="px-4 py-16 text-center text-[15px] text-ink-muted">
+        ยังไม่มีข้อมูลในช่วงนี้
+      </p>
     );
   }
 
   return (
-    <div className="tabular-nums">
+    <div className="animate-[fade-in_150ms_ease-out]">
       {/* column header, shown once at the top like a paper form */}
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-stone-300 bg-stone-50 px-4 py-2 text-xs tracking-wide text-stone-500">
+      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-rule bg-paper px-4 py-2 text-[13px] tracking-wide text-ink-muted">
         <span className="w-12">เวลา</span>
-        <span className="w-16 text-right">SYS</span>
-        <span className="w-16 text-right">DIA</span>
-        <span className="w-16 text-right">ชีพจร</span>
+        <span className="ml-auto w-14 text-right">SYS</span>
+        <span className="w-14 text-right">DIA</span>
+        <span className="w-14 text-right">ชีพจร</span>
       </div>
 
       {group(readings, slots).map((day) => (
         <section key={day.date}>
-          <h2 className="border-b border-stone-200 bg-white px-4 pt-5 pb-1 text-base font-semibold text-stone-900">
+          <h2 className="border-b border-rule-strong bg-paper px-4 pt-6 pb-2 text-[17px] font-semibold text-ink">
             {thaiDate(day.date)}
           </h2>
 
           {day.slots.map(({ slot, rows }) => (
             <div key={slot}>
-              <div className="px-4 pt-2 pb-1 text-sm font-medium text-stone-600">
+              <div className="px-4 pt-3 pb-1 text-[15px] font-medium text-ink-muted">
                 {slotLabel(slot, slots)}
               </div>
 
@@ -104,38 +107,38 @@ export function ReadingsTable({
                   key={r.id}
                   onClick={() => onSelect?.(r)}
                   className={
-                    "flex w-full items-center gap-3 border-b border-stone-100 px-4 py-3 text-left " +
-                    "active:bg-stone-100 " +
+                    "flex min-h-[52px] w-full items-center gap-3 border-b border-rule px-4 py-3 text-left " +
+                    "transition-colors duration-100 active:bg-rule/40 " +
                     (r.needs_review
-                      ? "border-l-4 border-l-amber-500 bg-amber-50/40 pl-3"
+                      ? "border-l-4 border-l-accent bg-accent-soft pl-3"
                       : "")
                   }
                 >
-                  <span className="w-12 text-sm text-stone-500">
+                  <span className="w-12 text-[13px] text-ink-muted tabular-nums">
                     {clockTime(r.taken_at)}
                   </span>
-                  <span className="w-16 text-right text-xl font-semibold text-stone-900">
+                  <span className="ml-auto w-14 text-right text-2xl font-semibold text-ink tabular-nums">
                     <Value v={r.sys} />
                   </span>
-                  <span className="w-16 text-right text-xl font-semibold text-stone-900">
+                  <span className="w-14 text-right text-2xl font-semibold text-ink tabular-nums">
                     <Value v={r.dia} />
                   </span>
-                  <span className="w-16 text-right text-xl text-stone-700">
+                  <span className="w-14 text-right text-base text-ink-muted tabular-nums">
                     <Value v={r.pulse} />
                   </span>
 
-                  <span className="ml-auto flex items-center gap-2">
+                  <span className="flex items-center gap-2 pl-1">
                     {r.irregular_flag && (
                       <span
-                        className="text-stone-400"
+                        className="text-ink-faint"
                         title="เครื่องแจ้งจังหวะหัวใจไม่สม่ำเสมอ"
                         aria-label="เครื่องแจ้งจังหวะหัวใจไม่สม่ำเสมอ"
                       >
-                        ♡
+                        <HeartPulse size={16} strokeWidth={1.5} />
                       </span>
                     )}
                     {r.needs_review && (
-                      <span className="rounded-sm bg-amber-500 px-1.5 py-0.5 text-[11px] font-medium text-white">
+                      <span className="rounded-sm bg-accent px-1.5 py-0.5 text-[11px] font-medium text-white">
                         ตรวจสอบ
                       </span>
                     )}

@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { initLiff, apiFetch, type LiffSession } from "@/lib/liff";
 import { Nav } from "@/components/nav";
 import { ReportSheet } from "@/components/report-sheet";
+import { ReportSheetSkeleton } from "@/components/skeleton";
+import { useDelayedFlag } from "@/lib/use-delayed-flag";
 import { DEFAULT_SLOTS, type SlotDef } from "@/lib/slot";
 import type { ReadingDto } from "@/app/api/readings/route";
 
@@ -29,6 +32,7 @@ export default function ReportPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sheet = useRef<HTMLDivElement>(null);
+  const loading = useDelayedFlag(!data && !error);
 
   useEffect(() => {
     initLiff()
@@ -104,59 +108,65 @@ export default function ReportPage() {
   if (error) {
     return (
       <main className="mx-auto max-w-lg p-6">
-        <p className="text-sm text-stone-600">{error}</p>
+        <p className="text-[15px] font-medium text-ink">{error}</p>
       </main>
     );
   }
   if (!data) {
+    if (!loading) return null;
     return (
-      <main className="mx-auto max-w-lg p-6 text-stone-500">กำลังโหลด</main>
+      <main className="mx-auto min-h-screen w-full max-w-3xl bg-paper pb-24">
+        <Nav />
+        <div className="mt-4">
+          <ReportSheetSkeleton />
+        </div>
+      </main>
     );
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-3xl bg-stone-100 pb-24">
+    <main className="mx-auto min-h-screen w-full max-w-3xl bg-paper pb-24">
       <Nav />
 
       <div className="no-print space-y-3 px-4 pt-4">
         <div className="flex gap-2">
-          <label className="flex-1 text-sm">
-            <span className="block text-stone-500">ตั้งแต่</span>
+          <label className="flex-1 text-[15px]">
+            <span className="block text-ink-muted">ตั้งแต่</span>
             <input
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="w-full rounded-md border border-stone-300 bg-white px-2 py-2"
+              className="w-full rounded-md border border-rule-strong bg-white px-2 py-2"
             />
           </label>
-          <label className="flex-1 text-sm">
-            <span className="block text-stone-500">ถึง</span>
+          <label className="flex-1 text-[15px]">
+            <span className="block text-ink-muted">ถึง</span>
             <input
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className="w-full rounded-md border border-stone-300 bg-white px-2 py-2"
+              className="w-full rounded-md border border-rule-strong bg-white px-2 py-2"
             />
           </label>
         </div>
 
-        <div className="flex gap-2 text-sm">
+        <div className="flex gap-2 text-[15px]">
           <button
             onClick={() => setFrom(days(30))}
-            className="rounded-full border border-stone-300 bg-white px-3 py-1.5"
+            className="rounded-full border border-rule-strong bg-white px-3 py-1.5 transition-colors duration-150"
           >
             30 วัน
           </button>
           <button
             onClick={() => setFrom(days(90))}
-            className="rounded-full border border-stone-300 bg-white px-3 py-1.5"
+            className="rounded-full border border-rule-strong bg-white px-3 py-1.5 transition-colors duration-150"
           >
             3 เดือน
           </button>
           {data.settings?.last_visit_date && (
             <button
               onClick={() => setFrom(data.settings!.last_visit_date!)}
-              className="rounded-full border border-stone-300 bg-white px-3 py-1.5"
+              className="rounded-full border border-rule-strong bg-white px-3 py-1.5 transition-colors duration-150"
             >
               ตั้งแต่พบหมอครั้งก่อน
             </button>
@@ -164,7 +174,7 @@ export default function ReportPage() {
         </div>
       </div>
 
-      <div className="mt-4 overflow-x-auto bg-white shadow-sm print:overflow-visible print:shadow-none">
+      <div className="mt-4 overflow-x-auto border-y border-rule bg-white print:overflow-visible print:border-none">
         <ReportSheet
           ref={sheet}
           readings={data.readings}
@@ -175,23 +185,24 @@ export default function ReportPage() {
         />
       </div>
 
-      <div className="no-print fixed inset-x-0 bottom-0 mx-auto flex max-w-3xl gap-2 border-t border-stone-300 bg-white p-4">
+      <div className="no-print fixed inset-x-0 bottom-0 mx-auto flex max-w-3xl gap-2 border-t border-rule bg-white p-4">
         <button
           onClick={savePng}
           disabled={busy}
-          className="flex-1 rounded-md border border-stone-900 py-3 font-medium text-stone-900 disabled:opacity-50"
+          className="flex flex-1 items-center justify-center gap-2 rounded-md border border-ink py-3 font-medium text-ink disabled:opacity-50"
         >
+          {busy && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" aria-hidden="true" />}
           {busy ? "กำลังบันทึก" : "บันทึกรูป"}
         </button>
         <button
           onClick={() => window.print()}
-          className="flex-1 rounded-md bg-stone-900 py-3 font-medium text-white"
+          className="flex-1 rounded-md bg-ink py-3 font-medium text-paper"
         >
           พิมพ์
         </button>
         <button
           onClick={setLastVisitToday}
-          className="rounded-md border border-stone-300 px-3 py-3 text-sm text-stone-600"
+          className="min-h-11 rounded-md border border-rule-strong px-3 py-3 text-[15px] text-ink-muted"
         >
           พบหมอวันนี้
         </button>

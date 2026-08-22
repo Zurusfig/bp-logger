@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Loader2, X } from "lucide-react";
 import { apiFetch, type LiffSession } from "@/lib/liff";
+import { Skeleton } from "@/components/skeleton";
 import type { ReadingDto } from "@/app/api/readings/route";
 
 type Detail = ReadingDto & {
@@ -48,8 +50,8 @@ function NumberField({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="flex-1 border-r border-stone-200 px-3 py-2 last:border-r-0">
-      <span className="block text-xs text-stone-500">{label}</span>
+    <label className="flex-1 border-r border-rule px-3 py-2 last:border-r-0">
+      <span className="block text-[13px] text-ink-muted">{label}</span>
       <input
         type="number"
         inputMode="numeric"
@@ -77,8 +79,10 @@ export function ReadingDetail({
 }) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [editing, setEditing] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<"save" | "confirm" | "delete" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [closing, setClosing] = useState(false);
 
   const [sys, setSys] = useState(reading.sys?.toString() ?? "");
   const [dia, setDia] = useState(reading.dia?.toString() ?? "");
@@ -91,21 +95,34 @@ export function ReadingDetail({
       .catch((e) => setError(String(e.message ?? e)));
   }, [reading.id, session]);
 
+  // Slides up from off-screen on mount, so the sheet visibly arrives from
+  // the bottom rather than popping in.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const id = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  function requestClose() {
+    setClosing(true);
+    setTimeout(onClose, 200);
+  }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && requestClose();
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     };
-  }, [onClose]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const r = detail ?? reading;
   const incomplete = !sys || !dia || !pulse;
+  const busy = busyAction !== null;
 
   async function save() {
-    setBusy(true);
+    setBusyAction("save");
     setError(null);
     try {
       await apiFetch(`/api/readings/${reading.id}`, session, {
@@ -119,62 +136,78 @@ export function ReadingDetail({
         }),
       });
       onChanged();
-      onClose();
+      requestClose();
     } catch (e: any) {
       setError(String(e.message ?? e));
-      setBusy(false);
+      setBusyAction(null);
     }
   }
 
   async function confirm() {
-    setBusy(true);
+    setBusyAction("confirm");
     try {
       await apiFetch(`/api/readings/${reading.id}/review`, session, { method: "POST" });
       onChanged();
-      onClose();
+      requestClose();
     } catch (e: any) {
       setError(String(e.message ?? e));
-      setBusy(false);
+      setBusyAction(null);
     }
   }
 
   async function remove() {
     if (!window.confirm("ลบรายการนี้")) return;
-    setBusy(true);
+    setBusyAction("delete");
     try {
       await apiFetch(`/api/readings/${reading.id}`, session, { method: "DELETE" });
       onChanged();
-      onClose();
+      requestClose();
     } catch (e: any) {
       setError(String(e.message ?? e));
-      setBusy(false);
+      setBusyAction(null);
     }
   }
 
+  const open = mounted && !closing;
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/40" onClick={onClose}>
+    <div
+      className={
+        "fixed inset-0 z-50 flex flex-col bg-ink/40 transition-opacity duration-150 " +
+        (open ? "opacity-100" : "opacity-0")
+      }
+      onClick={requestClose}
+    >
       <div
-        className="mx-auto mt-auto max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-xl bg-white"
+        className={
+          "mx-auto mt-auto max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-xl bg-white " +
+          "transition-transform duration-200 ease-out " +
+          (open ? "translate-y-0" : "translate-y-full")
+        }
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 flex items-center justify-between border-b border-stone-200 bg-white px-4 py-3">
+        <div className="sticky top-0 flex items-center justify-between border-b border-rule bg-white px-4 py-3">
           <div>
-            <div className="font-medium">
+            <div className="text-[15px] font-medium text-ink">
               {bkk(r.taken_at, { day: "numeric", month: "short" })}{" "}
               {SLOT_LABEL[r.slot ?? ""] ?? ""}{" "}
               {bkk(r.taken_at, { hour: "2-digit", minute: "2-digit", hour12: false })}
             </div>
-            <div className="text-xs text-stone-500">
+            <div className="text-[13px] text-ink-muted">
               บันทึกโดย {members[r.sender_id] || "ไม่ทราบ"}
               {detail?.edited_by ? ` แก้ไขโดย ${members[detail.edited_by] || "ไม่ทราบ"}` : ""}
             </div>
           </div>
-          <button onClick={onClose} className="px-2 py-1 text-stone-500" aria-label="ปิด">
-            ✕
+          <button
+            onClick={requestClose}
+            className="flex h-11 w-11 items-center justify-center text-ink-muted"
+            aria-label="ปิด"
+          >
+            <X size={18} strokeWidth={1.5} />
           </button>
         </div>
 
-        <div className="flex border-b border-stone-200">
+        <div className="flex border-b border-rule">
           {editing ? (
             <>
               <NumberField label="SYS" value={sys} onChange={setSys} />
@@ -184,15 +217,19 @@ export function ReadingDetail({
           ) : (
             <>
               {(["sys", "dia", "pulse"] as const).map((f) => (
-                <div
-                  key={f}
-                  className="flex-1 border-r border-stone-200 px-3 py-2 last:border-r-0"
-                >
-                  <div className="text-xs text-stone-500">
+                <div key={f} className="flex-1 border-r border-rule px-3 py-2 last:border-r-0">
+                  <div className="text-[13px] text-ink-muted">
                     {f === "pulse" ? "ชีพจร" : f.toUpperCase()}
                   </div>
-                  <div className="text-2xl font-semibold tabular-nums">
-                    {r[f] ?? <span className="text-stone-300">—</span>}
+                  <div
+                    className={
+                      "tabular-nums " +
+                      (f === "pulse"
+                        ? "text-xl font-medium text-ink-muted"
+                        : "text-2xl font-semibold text-ink")
+                    }
+                  >
+                    {r[f] ?? <span className="text-ink-faint">—</span>}
                   </div>
                 </div>
               ))}
@@ -201,19 +238,19 @@ export function ReadingDetail({
         </div>
 
         {editing && (
-          <label className="block border-b border-stone-200 px-4 py-3">
-            <span className="block text-xs text-stone-500">เวลาที่วัด</span>
+          <label className="block border-b border-rule px-4 py-3">
+            <span className="block text-[13px] text-ink-muted">เวลาที่วัด</span>
             <input
               type="datetime-local"
               value={takenAt}
               onChange={(e) => setTakenAt(e.target.value)}
-              className="w-full bg-transparent py-1 text-base outline-none"
+              className="w-full bg-transparent py-1 text-[15px] outline-none"
             />
           </label>
         )}
 
         {r.needs_review && !editing && (
-          <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="border-b border-accent/30 bg-accent-soft px-4 py-3 text-[15px] text-accent-strong">
             <div className="font-medium">รอการตรวจสอบ</div>
             <div className="mt-1">
               {r.review_note ||
@@ -225,7 +262,7 @@ export function ReadingDetail({
           </div>
         )}
 
-        <div className="bg-stone-100 p-4">
+        <div className="flex min-h-[46vh] items-center justify-center bg-paper p-4">
           {detail?.image_url ? (
             <img
               src={detail.image_url}
@@ -233,36 +270,39 @@ export function ReadingDetail({
               className="mx-auto max-h-[46vh] w-auto rounded"
             />
           ) : detail ? (
-            <p className="py-8 text-center text-sm text-stone-500">ไม่มีรูป</p>
+            <p className="text-[15px] text-ink-muted">ไม่มีรูป</p>
           ) : (
-            <p className="py-8 text-center text-sm text-stone-500">กำลังโหลดรูป</p>
+            <Skeleton className="h-full min-h-[40vh] w-full max-w-xs" />
           )}
         </div>
 
         {detail?.ocr_raw?.observations && !editing && (
-          <details className="border-t border-stone-200 px-4 py-3 text-sm text-stone-600">
-            <summary className="cursor-pointer text-stone-500">รายละเอียดการอ่าน</summary>
+          <details className="border-t border-rule px-4 py-3 text-[15px] text-ink-muted">
+            <summary className="cursor-pointer text-ink-muted">รายละเอียดการอ่าน</summary>
             <p className="mt-2">{detail.ocr_raw.observations}</p>
           </details>
         )}
 
-        {error && <p className="px-4 py-3 text-sm text-red-700">{error}</p>}
+        {error && <p className="px-4 py-3 text-[15px] font-medium text-ink">{error}</p>}
 
-        <div className="sticky bottom-0 flex gap-2 border-t border-stone-200 bg-white p-4">
+        <div className="sticky bottom-0 flex gap-2 border-t border-rule bg-white p-4">
           {editing ? (
             <>
               <button
                 onClick={() => setEditing(false)}
-                className="rounded-md border border-stone-300 px-4 py-3 text-stone-700"
+                className="min-h-11 rounded-md border border-rule-strong px-4 py-3 text-ink-muted"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={save}
                 disabled={busy}
-                className="flex-1 rounded-md bg-stone-900 py-3 font-medium text-white disabled:bg-stone-300"
+                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md bg-ink py-3 font-medium text-paper disabled:opacity-50"
               >
-                {busy ? "กำลังบันทึก" : "บันทึก"}
+                {busyAction === "save" && (
+                  <Loader2 size={16} strokeWidth={1.5} className="animate-spin" aria-hidden="true" />
+                )}
+                {busyAction === "save" ? "กำลังบันทึก" : "บันทึก"}
               </button>
             </>
           ) : (
@@ -270,13 +310,16 @@ export function ReadingDetail({
               <button
                 onClick={remove}
                 disabled={busy}
-                className="rounded-md border border-stone-300 px-4 py-3 text-stone-600"
+                className="flex min-h-11 items-center justify-center gap-2 rounded-md border border-rule-strong px-4 py-3 text-ink-muted disabled:opacity-50"
               >
+                {busyAction === "delete" && (
+                  <Loader2 size={16} strokeWidth={1.5} className="animate-spin" aria-hidden="true" />
+                )}
                 ลบ
               </button>
               <button
                 onClick={() => setEditing(true)}
-                className="flex-1 rounded-md border border-stone-900 py-3 font-medium text-stone-900"
+                className="min-h-11 flex-1 rounded-md border border-ink py-3 font-medium text-ink"
               >
                 แก้ไข
               </button>
@@ -284,8 +327,11 @@ export function ReadingDetail({
                 <button
                   onClick={confirm}
                   disabled={busy || incomplete}
-                  className="flex-1 rounded-md bg-stone-900 py-3 font-medium text-white disabled:bg-stone-300"
+                  className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md bg-ink py-3 font-medium text-paper disabled:opacity-50"
                 >
+                  {busyAction === "confirm" && (
+                    <Loader2 size={16} strokeWidth={1.5} className="animate-spin" aria-hidden="true" />
+                  )}
                   ยืนยัน
                 </button>
               )}

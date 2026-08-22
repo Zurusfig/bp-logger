@@ -6,6 +6,8 @@ import { initLiff, apiFetch, type LiffSession } from "@/lib/liff";
 import { Nav } from "@/components/nav";
 import { ReadingsTable } from "@/components/readings-table";
 import { ReadingDetail } from "@/components/reading-detail";
+import { ReadingsTableSkeleton, Skeleton } from "@/components/skeleton";
+import { useDelayedFlag } from "@/lib/use-delayed-flag";
 import type { ReadingDto } from "@/app/api/readings/route";
 import { DEFAULT_SLOTS, SlotDef } from "@/lib/slot";
 
@@ -50,6 +52,8 @@ function AppInner() {
   const [selected, setSelected] = useState<ReadingDto | null>(null);
   const [deepLinkDone, setDeepLinkDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadNonce, setLoadNonce] = useState(0);
+  const loading = useDelayedFlag(!data && !error);
 
   useEffect(() => {
     initLiff()
@@ -66,7 +70,10 @@ function AppInner() {
     });
 
     apiFetch<Payload>(`/api/readings?${qs}`, session)
-      .then(setData)
+      .then((p) => {
+        setData(p);
+        setLoadNonce((n) => n + 1);
+      })
       .catch((e) => setError(String(e.message ?? e)));
     // data.settings is deliberately not a dependency: refetching when it arrives
     // would loop. The range control re-queries once a last-visit date exists.
@@ -87,9 +94,9 @@ function AppInner() {
   if (error) {
     return (
       <main className="mx-auto max-w-lg p-6">
-        <h1 className="mb-2 text-lg font-semibold">เปิดข้อมูลไม่ได้</h1>
-        <p className="text-sm text-stone-600">{error}</p>
-        <p className="mt-4 text-sm text-stone-500">
+        <h1 className="mb-2 text-lg font-semibold text-ink">เปิดข้อมูลไม่ได้</h1>
+        <p className="text-[15px] font-medium text-ink">{error}</p>
+        <p className="mt-4 text-[15px] text-ink-muted">
           ถ้ายังไม่เคยส่งรูปในกลุ่ม ให้ส่งรูปหนึ่งครั้งก่อน แล้วเปิดใหม่
         </p>
       </main>
@@ -97,19 +104,33 @@ function AppInner() {
   }
 
   if (!data) {
+    if (!loading) return null;
     return (
-      <main className="mx-auto max-w-lg p-6 text-stone-500">กำลังโหลด</main>
+      <main className="mx-auto min-h-screen w-full max-w-lg bg-white pb-16 lg:max-w-3xl">
+        <div className="border-b border-rule px-4 pt-4 pb-3">
+          <div className="flex items-baseline justify-between">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-4 w-12" />
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Skeleton className="h-8 w-24 rounded-full" />
+            <Skeleton className="h-8 w-16 rounded-full" />
+            <Skeleton className="h-8 w-16 rounded-full" />
+          </div>
+        </div>
+        <ReadingsTableSkeleton />
+      </main>
     );
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-lg bg-white pb-16 text-stone-900 lg:max-w-3xl">
-      <header className="border-b border-stone-300 px-4 pt-4 pb-3">
+    <main className="mx-auto min-h-screen w-full max-w-lg bg-white pb-16 text-ink lg:max-w-3xl">
+      <header className="border-b border-rule px-4 pt-4 pb-3">
         <div className="flex items-baseline justify-between">
           <h1 className="text-lg font-semibold">
             {data.settings?.patient_name ?? "ความดันโลหิต"}
           </h1>
-          <span className="text-sm text-stone-500">
+          <span className="text-[15px] text-ink-muted tabular-nums">
             {data.readings.length} ครั้ง
           </span>
         </div>
@@ -120,10 +141,10 @@ function AppInner() {
               key={r.key}
               onClick={() => setRange(r.key)}
               className={
-                "shrink-0 rounded-full border px-3 py-1.5 text-sm " +
+                "shrink-0 rounded-full border px-3 py-1.5 text-[15px] transition-colors duration-150 " +
                 (range === r.key
-                  ? "border-stone-900 bg-stone-900 text-white"
-                  : "border-stone-300 text-stone-600")
+                  ? "border-ink bg-ink text-paper"
+                  : "border-rule-strong text-ink-muted")
               }
             >
               {r.label}
@@ -135,10 +156,10 @@ function AppInner() {
           <button
             onClick={() => setReviewOnly((v) => !v)}
             className={
-              "mt-3 flex w-full items-center gap-2 rounded-md border px-3 py-2 text-sm " +
+              "mt-3 flex min-h-11 w-full items-center gap-2 rounded-md border px-3 py-2 text-[15px] transition-colors duration-150 " +
               (reviewOnly
-                ? "border-amber-600 bg-amber-500 text-white"
-                : "border-amber-300 bg-amber-50 text-amber-900")
+                ? "border-accent-strong bg-accent text-white"
+                : "border-accent/40 bg-accent-soft text-accent-strong")
             }
           >
             <span className="font-medium">
@@ -146,7 +167,7 @@ function AppInner() {
                 ? `แสดง ${data.readings.length} รายการที่รอตรวจสอบ`
                 : `${data.review_count} รายการรอตรวจสอบ`}
             </span>
-            <span className="ml-auto text-xs opacity-80">
+            <span className="ml-auto text-[13px] opacity-80">
               {reviewOnly ? "แสดงทั้งหมด" : "ดูเฉพาะรายการนี้"}
             </span>
           </button>
@@ -156,6 +177,7 @@ function AppInner() {
       <Nav />
 
       <ReadingsTable
+        key={loadNonce}
         readings={data.readings}
         slots={data.settings?.slots ?? DEFAULT_SLOTS}
         onSelect={setSelected}
@@ -177,7 +199,7 @@ function AppInner() {
 export default function AppPage() {
   // useSearchParams needs a Suspense boundary in the App Router.
   return (
-    <Suspense fallback={<main className="p-6 text-stone-500">กำลังโหลด</main>}>
+    <Suspense fallback={<main className="min-h-screen bg-paper" />}>
       <AppInner />
     </Suspense>
   );
