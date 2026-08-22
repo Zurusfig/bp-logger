@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
-import { initLiff, apiFetch, type LiffSession } from "@/lib/liff";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Loader2, X } from "lucide-react";
+import { initLiff, apiFetch, isInLiffClient, openExternally, type LiffSession } from "@/lib/liff";
 import { Nav } from "@/components/nav";
 import { ReportSheet } from "@/components/report-sheet";
 import { ReportSheetSkeleton } from "@/components/skeleton";
@@ -24,13 +25,16 @@ const days = (n: number) =>
   new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 const today = () => new Date().toISOString().slice(0, 10);
 
-export default function ReportPage() {
+function ReportInner() {
+  const params = useSearchParams();
+
   const [session, setSession] = useState<LiffSession | null>(null);
   const [data, setData] = useState<Payload | null>(null);
-  const [from, setFrom] = useState<string>("");
-  const [to, setTo] = useState<string>(today());
+  const [from, setFrom] = useState<string>(params.get("from") ?? "");
+  const [to, setTo] = useState<string>(params.get("to") ?? today());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const loading = useDelayedFlag(!data && !error);
 
@@ -57,7 +61,8 @@ export default function ReportPage() {
 
   useEffect(() => {
     if (!session) return;
-    // First load uses the household's last visit date once it is known.
+    // First load uses the household's last visit date once it is known,
+    // unless a range already arrived via the URL (see handlePrint).
     load(from || undefined, to);
   }, [session, from, to]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -84,15 +89,49 @@ export default function ReportPage() {
       } finally {
         el.style.width = prevWidth;
       }
-      const url = canvas.toDataURL("image/png");
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `ความดัน_${from}_${to}.png`;
-      a.click();
+
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/png"),
+      );
+      if (!blob) throw new Error("สร้างรูปไม่สำเร็จ");
+      const url = URL.createObjectURL(blob);
+
+      // LINE's in-app browser, and iOS Safari to a lesser extent, do not
+      // reliably honour <a download> — the tap silently does nothing. Showing
+      // the image lets the user save it with the universal long-press gesture
+      // instead of a download that may never fire.
+      if (isInLiffClient()) {
+        setPreview(url);
+      } else {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `ความดัน_${from}_${to}.png`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      }
     } catch (e: any) {
       setError(String(e.message ?? e));
     }
     setBusy(false);
+  }
+
+  function handlePrint() {
+    // The embedded WebView LINE opens LIFF apps in commonly has no print UI at
+    // all, so window.print() is a silent no-op there. Hand off to the device's
+    // real browser instead, carrying the selected range along in the URL.
+    if (isInLiffClient()) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("from", from || data?.range.from || days(30));
+      url.searchParams.set("to", to);
+      openExternally(url.toString());
+    } else {
+      window.print();
+    }
+  }
+
+  function closePreview() {
+    if (preview) URL.revokeObjectURL(preview);
+    setPreview(null);
   }
 
   async function setLastVisitToday() {
@@ -195,7 +234,7 @@ export default function ReportPage() {
           {busy ? "กำลังบันทึก" : "บันทึกรูป"}
         </button>
         <button
-          onClick={() => window.print()}
+          onClick={handlePrint}
           className="flex-1 rounded-md bg-ink py-3 font-medium text-paper"
         >
           พิมพ์
@@ -207,6 +246,41 @@ export default function ReportPage() {
           พบหมอวันนี้
         </button>
       </div>
+
+      {preview && (
+        <div
+          className="no-print fixed inset-0 z-50 flex flex-col bg-ink/60"
+          onClick={closePreview}
+        >
+          <div className="flex items-center justify-between p-4">
+            <p className="text-[15px] font-medium text-paper">กดค้างที่รูปเพื่อบันทึกลงเครื่อง</p>
+            <button
+              onClick={closePreview}
+              className="flex h-11 w-11 items-center justify-center text-paper"
+              aria-label="ปิด"
+            >
+              <X size={18} strokeWidth={1.5} />
+            </button>
+          </div>
+          <div className="flex flex-1 items-center justify-center overflow-auto p-4">
+            <img
+              src={preview}
+              alt="รูปสรุปสำหรับหมอ"
+              className="max-h-full max-w-full rounded"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
     </main>
+  );
+}
+
+export default function ReportPage() {
+  // useSearchParams needs a Suspense boundary in the App Router.
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-paper" />}>
+      <ReportInner />
+    </Suspense>
   );
 }

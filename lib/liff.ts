@@ -49,6 +49,21 @@ export async function initLiff(): Promise<LiffSession> {
   return { idToken, groupId, displayName };
 }
 
+/**
+ * True when running inside LINE's own in-app browser (as opposed to a regular
+ * mobile/desktop browser opened via a LIFF URL). That embedded WebView commonly
+ * lacks window.print() and treats anchor `download`/data: URIs unreliably, so
+ * features that depend on either need a different path there.
+ */
+export function isInLiffClient(): boolean {
+  return _liff?.isInClient() ?? false;
+}
+
+/** Hands a URL to the device's real browser instead of LINE's in-app WebView. */
+export function openExternally(url: string): void {
+  _liff?.openWindow({ url, external: true });
+}
+
 /** Authenticated fetch against our own API. */
 export async function apiFetch<T>(
   path: string,
