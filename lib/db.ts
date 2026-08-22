@@ -1,7 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import type { Reading } from "./ocr";
-import type { Slot } from "./slot";
 
 let _db: SupabaseClient | null = null;
 
@@ -102,7 +101,7 @@ export async function insertReading(row: {
   senderId: string;
   takenAt: Date;
   postedAt: Date;
-  slot: Slot;
+  slot: string;     
   readingDate: string;
   reading?: Reading | null;
   source?: string;

@@ -1,6 +1,6 @@
 import { sessionFromRequest } from "@/lib/auth";
 import { getDb, signedImageUrl } from "@/lib/db";
-import { deriveSlot, type Slot } from "@/lib/slot";
+import { deriveSlot } from "@/lib/slot";
 
 export const runtime = "nodejs";
 
@@ -43,7 +43,7 @@ type Body = {
   dia?: number | null;
   pulse?: number | null;
   taken_at?: string;
-  slot?: Slot;
+  slot?: string;
 };
 
 /**
