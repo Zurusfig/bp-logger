@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { initLiff, apiFetch, type LiffSession } from "@/lib/liff";
+import { Nav } from "@/components/nav";
 import { ReadingsTable } from "@/components/readings-table";
 import { ReadingDetail } from "@/components/reading-detail";
 import type { ReadingDto } from "@/app/api/readings/route";
@@ -139,6 +140,8 @@ function AppInner() {
           </button>
         )}
       </header>
+
+      <Nav />
 
       <ReadingsTable readings={data.readings} onSelect={setSelected} />
 

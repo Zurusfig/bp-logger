@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { initLiff, apiFetch, type LiffSession } from "@/lib/liff";
+import { Nav } from "@/components/nav";
 import { ReportSheet } from "@/components/report-sheet";
 import { DEFAULT_SLOTS, type SlotDef } from "@/lib/slot";
 import type { ReadingDto } from "@/app/api/readings/route";
@@ -101,6 +102,8 @@ export default function ReportPage() {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl bg-stone-100 pb-24">
+      <Nav />
+
       <div className="no-print space-y-3 px-4 pt-4">
         <div className="flex gap-2">
           <label className="flex-1 text-sm">
