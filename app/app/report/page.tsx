@@ -25,6 +25,13 @@ const days = (n: number) =>
   new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 const today = () => new Date().toISOString().slice(0, 10);
 
+function chipClass(active: boolean): string {
+  return (
+    "rounded-full border px-3 py-1.5 transition-colors duration-150 " +
+    (active ? "border-ink bg-ink text-paper" : "border-rule-strong bg-white text-ink-muted")
+  );
+}
+
 function ReportInner() {
   const params = useSearchParams();
 
@@ -168,8 +175,8 @@ function ReportInner() {
       <Nav />
 
       <div className="no-print space-y-3 px-4 pt-4">
-        <div className="flex gap-2">
-          <label className="flex-1 text-[15px]">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <label className="text-[15px]">
             <span className="block text-ink-muted">ตั้งแต่</span>
             <input
               type="date"
@@ -178,7 +185,7 @@ function ReportInner() {
               className="w-full rounded-md border border-rule-strong bg-white px-2 py-2"
             />
           </label>
-          <label className="flex-1 text-[15px]">
+          <label className="text-[15px]">
             <span className="block text-ink-muted">ถึง</span>
             <input
               type="date"
@@ -189,23 +196,17 @@ function ReportInner() {
           </label>
         </div>
 
-        <div className="flex gap-2 text-[15px]">
-          <button
-            onClick={() => setFrom(days(30))}
-            className="rounded-full border border-rule-strong bg-white px-3 py-1.5 transition-colors duration-150"
-          >
+        <div className="flex flex-wrap gap-2 text-[15px]">
+          <button onClick={() => setFrom(days(30))} className={chipClass(from === days(30))}>
             30 วัน
           </button>
-          <button
-            onClick={() => setFrom(days(90))}
-            className="rounded-full border border-rule-strong bg-white px-3 py-1.5 transition-colors duration-150"
-          >
+          <button onClick={() => setFrom(days(90))} className={chipClass(from === days(90))}>
             3 เดือน
           </button>
           {data.settings?.last_visit_date && (
             <button
               onClick={() => setFrom(data.settings!.last_visit_date!)}
-              className="rounded-full border border-rule-strong bg-white px-3 py-1.5 transition-colors duration-150"
+              className={chipClass(from === data.settings.last_visit_date)}
             >
               ตั้งแต่พบหมอครั้งก่อน
             </button>
