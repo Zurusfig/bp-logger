@@ -64,10 +64,22 @@ export default function ReportPage() {
       // html2canvas-pro, not html2canvas: Tailwind v4 emits oklch() colours that
       // the original library cannot parse and throws on.
       const { default: html2canvas } = await import("html2canvas-pro");
-      const canvas = await html2canvas(sheet.current, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-      });
+      const el = sheet.current;
+      // The sheet is width:100% so it never grows past its scrollable wrapper;
+      // html2canvas only captures the element's own box, so a report wide enough
+      // to overflow (many slot columns) gets silently cropped unless we expand
+      // it to its full content width first.
+      const prevWidth = el.style.width;
+      el.style.width = `${el.scrollWidth}px`;
+      let canvas;
+      try {
+        canvas = await html2canvas(el, {
+          scale: 2,
+          backgroundColor: "#ffffff",
+        });
+      } finally {
+        el.style.width = prevWidth;
+      }
       const url = canvas.toDataURL("image/png");
       const a = document.createElement("a");
       a.href = url;
@@ -152,7 +164,7 @@ export default function ReportPage() {
         </div>
       </div>
 
-      <div className="mt-4 bg-white shadow-sm print:shadow-none">
+      <div className="mt-4 overflow-x-auto bg-white shadow-sm print:overflow-visible print:shadow-none">
         <ReportSheet
           ref={sheet}
           readings={data.readings}
