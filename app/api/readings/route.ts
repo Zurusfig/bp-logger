@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export type ReadingDto = {
   id: string;
   taken_at: string;
-  slot: "morning" | "evening" | null;
+    slot: string | null;
   reading_date: string | null;
   sys: number | null;
   dia: number | null;
@@ -84,7 +84,7 @@ export async function GET(req: Request) {
 
   const { data: settings } = await getDb()
     .from("settings")
-    .select("patient_name,last_visit_date,tz")
+    .select("patient_name,last_visit_date,tz,slots")
     .eq("group_id", session.groupId)
     .maybeSingle();
 
