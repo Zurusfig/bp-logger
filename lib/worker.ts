@@ -54,6 +54,37 @@ const logErr = (e: LineEvent) => (err: unknown) =>
   console.error("event failed", { type: e.type, id: e.message?.id, err: String(err) });
 
 async function handleEvent(e: LineEvent): Promise<void> {
+  // Enrolment happens on ANY activity in the allowed group, not just posting a
+  // reading — otherwise a member who never sends a photo or types a reading has
+  // no members row and resolveSession() locks them out of the LIFF app entirely.
+  if (e.source.type === "group" && e.source.groupId && e.source.userId) {
+    const groupId = e.source.groupId;
+    const userId = e.source.userId;
+    if (allowedGroup(groupId)) {
+      try {
+        const name = await getGroupMemberName(groupId, userId);
+        await ensureMember(groupId, userId, name);
+      } catch (err) {
+        console.error("enrol failed", { groupId, userId, err: String(err) });
+      }
+    }
+  }
+
+  if (e.type === "memberJoined" && e.source.type === "group" && e.source.groupId) {
+    const groupId = e.source.groupId;
+    if (allowedGroup(groupId)) {
+      for (const m of e.joined?.members ?? []) {
+        if (!m.userId) continue;
+        try {
+          const name = await getGroupMemberName(groupId, m.userId);
+          await ensureMember(groupId, m.userId, name);
+        } catch (err) {
+          console.error("enrol failed", { groupId, userId: m.userId, err: String(err) });
+        }
+      }
+    }
+  }
+
   if (e.type !== "message" || !e.message) return;
   if (e.message.type === "image") return handleImage(e);
   if (e.message.type === "text") return handleText(e);
@@ -69,11 +100,6 @@ async function handleImage(e: LineEvent): Promise<void> {
   const groupId = isDirect ? await memberGroup(userId) : e.source.groupId;
   if (!groupId) return; // 1:1 from someone with no household yet
   if (!isDirect && !allowedGroup(groupId)) return;
-
-  if (!isDirect) {
-    const name = await getGroupMemberName(groupId, userId);
-    await ensureMember(groupId, userId, name);
-  }
 
   // Fetch immediately — LINE expires content quickly.
   const buf = await getMessageContent(e.message!.id);
@@ -254,9 +280,6 @@ async function handleGroupText(e: LineEvent): Promise<void> {
 
   const m = text.match(GROUP_TEXT_RE);
   if (!m) return;
-
-  const name = await getGroupMemberName(groupId, userId);
-  await ensureMember(groupId, userId, name);
 
   const vals = { sys: Number(m[1]), dia: Number(m[2]), pulse: Number(m[3]) };
   const result = await insertTypedReading(groupId, userId, e.timestamp, vals);

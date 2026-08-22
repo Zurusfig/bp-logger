@@ -78,4 +78,6 @@ export type LineEvent = {
   source: LineSource;
   replyToken?: string;
   message?: { id: string; type: string; text?: string };
+  /** Present on memberJoined events: everyone who just joined the group. */
+  joined?: { members: { userId?: string }[] };
 };

@@ -97,7 +97,7 @@ function AppInner() {
         <h1 className="mb-2 text-lg font-semibold text-ink">เปิดข้อมูลไม่ได้</h1>
         <p className="text-[15px] font-medium text-ink">{error}</p>
         <p className="mt-4 text-[15px] text-ink-muted">
-          ถ้ายังไม่เคยส่งรูปในกลุ่ม ให้ส่งรูปหนึ่งครั้งก่อน แล้วเปิดใหม่
+          ถ้ายังไม่เคยส่งข้อความในกลุ่ม ให้ส่งข้อความหนึ่งครั้งก่อน แล้วเปิดใหม่
         </p>
       </main>
     );
