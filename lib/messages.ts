@@ -103,6 +103,25 @@ export function msgWrongCount(missing: string[]): string {
   return [`ต้องการค่า ${labels}`, `พิมพ์ตอบกลับ เช่น ${example}`].join("\n");
 }
 
+const ISSUE_LABEL: Record<string, string> = {
+  "sys out of range": "SYS อยู่นอกช่วงที่เป็นไปได้",
+  "dia out of range": "DIA อยู่นอกช่วงที่เป็นไปได้",
+  "pulse out of range": "ชีพจรอยู่นอกช่วงที่เป็นไปได้",
+  "sys <= dia": "SYS ต้องมากกว่า DIA",
+  "gap <= 10": "SYS กับ DIA ต่างกันน้อยเกินไป",
+};
+
+/** Typed numbers rejected by the validation gate (range, sys<=dia, gap too small). */
+export function msgInvalidEntry(v: Vals, issues: string[]): string {
+  const reasons = issues.map((i) => ISSUE_LABEL[i] ?? i).join(" ");
+  return [
+    "บันทึกไม่ได้",
+    valueLine(v),
+    reasons,
+    "พิมพ์ค่าใหม่ตอบกลับ เช่น 120/70/60",
+  ].join("\n");
+}
+
 /** A plausible single value, so the example never looks like a placeholder. */
 function exampleFor(field: string): string {
   if (field === "sys") return "120";

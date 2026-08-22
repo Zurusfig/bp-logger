@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import type { Reading } from "./ocr";
+import type { SlotDef } from "./slot";
 
 let _db: SupabaseClient | null = null;
 
@@ -60,6 +61,16 @@ export async function memberGroup(userId: string): Promise<string | null> {
   return data?.group_id ?? null;
 }
 
+/** The household's configured slots, for deriveSlot(). Null falls back to DEFAULT_SLOTS. */
+export async function getSlots(groupId: string): Promise<SlotDef[] | null> {
+  const { data } = await getDb()
+    .from("settings")
+    .select("slots")
+    .eq("group_id", groupId)
+    .maybeSingle();
+  return (data?.slots as SlotDef[] | null) ?? null;
+}
+
 /** Push returned 403 — stop trying until they add the OA as a friend. */
 export async function markUnreachable(userId: string): Promise<void> {
   await getDb().from("members").update({ notify_ok: false }).eq("user_id", userId);
@@ -101,9 +112,12 @@ export async function insertReading(row: {
   senderId: string;
   takenAt: Date;
   postedAt: Date;
-  slot: string;     
+  slot: string;
   readingDate: string;
   reading?: Reading | null;
+  sys?: number | null;
+  dia?: number | null;
+  pulse?: number | null;
   source?: string;
   imageHash?: string | null;
   imagePath?: string | null;
@@ -120,9 +134,9 @@ export async function insertReading(row: {
       posted_at: row.postedAt.toISOString(),
       slot: row.slot,
       reading_date: row.readingDate,
-      sys: r?.sys ?? null,
-      dia: r?.dia ?? null,
-      pulse: r?.pulse ?? null,
+      sys: r?.sys ?? row.sys ?? null,
+      dia: r?.dia ?? row.dia ?? null,
+      pulse: r?.pulse ?? row.pulse ?? null,
       irregular_flag: r?.irregular_flag ?? null,
       source: row.source ?? "image",
       image_hash: row.imageHash ?? null,

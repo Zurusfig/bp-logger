@@ -23,8 +23,18 @@ import {
   clearPending,
   bumpUsage,
   recentReadingBySender,
+  getSlots,
 } from "./db";
-import { msgPartial, msgSaved, msgSavedUnsure, msgUnreadable, msgUpdated, msgWrongCount } from "./messages";
+import {
+  msgPartial,
+  msgSaved,
+  msgSavedUnsure,
+  msgUnreadable,
+  msgUpdated,
+  msgWrongCount,
+  msgTypedEntry,
+  msgInvalidEntry,
+} from "./messages";
 
 const FIELDS = ["sys", "dia", "pulse"] as const;
 
@@ -102,7 +112,8 @@ async function handleImage(e: LineEvent): Promise<void> {
     : { ...reading, sys: null, dia: null, pulse: null };
 
   const postedAt = new Date(e.timestamp);
-  const { slot, reading_date } = deriveSlot(postedAt);
+  const slots = await getSlots(groupId);
+  const { slot, reading_date } = deriveSlot(postedAt, slots ?? undefined);
 
   const id = await insertReading({
     groupId,
@@ -173,9 +184,92 @@ async function notify(
   }
 }
 
-/** Typed numbers in a 1:1 chat: fills a pending read, or overwrites a recent one. */
+// -------------------------------------------------------------- typed entry
+
+/**
+ * A typed entry with no image: source='text', no image_path/image_hash, and
+ * needs_review=false since a human typed the numbers directly. Same validation
+ * gate as the image path (range, sys > dia, gap > 10) and the same deriveSlot()
+ * against the household's configured slots.
+ */
+async function insertTypedReading(
+  groupId: string,
+  senderId: string,
+  timestampMs: number,
+  vals: { sys: number; dia: number; pulse: number }
+): Promise<{ ok: true; id: string } | { ok: false; issues: string[] }> {
+  const check = validate({
+    sys: vals.sys,
+    dia: vals.dia,
+    pulse: vals.pulse,
+    orientation_deg: 0,
+    observations: "",
+    is_bp_display: true,
+    irregular_flag: null,
+    confidence: 1,
+  });
+  if (!check.ok) return { ok: false, issues: check.issues };
+
+  const postedAt = new Date(timestampMs);
+  const slots = await getSlots(groupId);
+  const { slot, reading_date } = deriveSlot(postedAt, slots ?? undefined);
+
+  const id = await insertReading({
+    groupId,
+    senderId,
+    takenAt: postedAt,
+    postedAt,
+    slot,
+    readingDate: reading_date,
+    sys: vals.sys,
+    dia: vals.dia,
+    pulse: vals.pulse,
+    source: "text",
+    needsReview: false,
+  });
+
+  return { ok: true, id };
+}
+
 async function handleText(e: LineEvent): Promise<void> {
-  if (e.source.type !== "user") return; // never parse text in the group
+  if (e.source.type === "user") return handleDirectText(e);
+  if (e.source.type === "group") return handleGroupText(e);
+  // rooms: unsupported, same as before
+}
+
+/**
+ * Only a message that is ONLY three numbers with separators, nothing else, so
+ * ordinary chat ("โทร 02 123 4567", "ราคา 100 200 300") can never trigger this.
+ * Anchored at both ends: any leading/trailing word, or a 4th number, fails the match.
+ */
+const GROUP_TEXT_RE = /^\s*(\d{2,3})\s*[\/\s\-]\s*(\d{2,3})\s*[\/\s\-]\s*(\d{2,3})\s*$/;
+
+/** Typed numbers in the group chat: strict match only, confirmation goes to the sender's 1:1. */
+async function handleGroupText(e: LineEvent): Promise<void> {
+  const userId = e.source.userId;
+  const groupId = e.source.groupId;
+  const text = e.message?.text;
+  if (!userId || !groupId || !text) return;
+  if (!allowedGroup(groupId)) return;
+
+  const m = text.match(GROUP_TEXT_RE);
+  if (!m) return;
+
+  const name = await getGroupMemberName(groupId, userId);
+  await ensureMember(groupId, userId, name);
+
+  const vals = { sys: Number(m[1]), dia: Number(m[2]), pulse: Number(m[3]) };
+  const result = await insertTypedReading(groupId, userId, e.timestamp, vals);
+
+  if (!result.ok) {
+    await pushMessage(userId, msgInvalidEntry(vals, result.issues));
+    return;
+  }
+  await pushMessage(userId, msgTypedEntry(vals, result.id));
+}
+
+/** Typed numbers in a 1:1 chat: fills a pending read, or overwrites a recent one. */
+async function handleDirectText(e: LineEvent): Promise<void> {
   const userId = e.source.userId;
   const text = e.message?.text?.trim();
   if (!userId || !text) return;
@@ -231,7 +325,18 @@ async function handleText(e: LineEvent): Promise<void> {
       await pushMessage(userId, msgUpdated({ sys: nums[0], dia: nums[1], pulse: nums[2] }));
       return;
     }
-  }
 
-  // Case 3: nothing to attach to. M5.6 turns this into a new text-only reading.
+    // Case 3: nothing to attach to. No prior reading at all — a fresh entry with
+    // no image, for when the monitor cannot be photographed.
+    const groupId = await memberGroup(userId);
+    if (!groupId) return; // 1:1 from someone with no household yet
+    const vals = { sys: nums[0], dia: nums[1], pulse: nums[2] };
+    const result = await insertTypedReading(groupId, userId, e.timestamp, vals);
+
+    if (!result.ok) {
+      await pushMessage(userId, msgInvalidEntry(vals, result.issues));
+      return;
+    }
+    await pushMessage(userId, msgTypedEntry(vals, result.id));
+  }
 }
