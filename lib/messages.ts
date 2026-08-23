@@ -164,6 +164,15 @@ export function msgInvalidEntry(v: Vals, issues: string[]): string {
   ].join("\n");
 }
 
+/**
+ * Missed-entry reminder: a checklist prompt, not a health warning. Never mentions
+ * values, risk, or outcomes, and carries no action line — same shape whether one
+ * slot or several are due.
+ */
+export function msgMissedEntry(labels: string[]): string {
+  return ["ยังไม่ได้บันทึกความดันวันนี้", `เวลา: ${labels.join(" ")}`].join("\n");
+}
+
 /** A plausible single value, so the example never looks like a placeholder. */
 function exampleFor(field: string): string {
   if (field === "sys") return "120";

@@ -76,13 +76,14 @@ export type Member = {
   display_name: string | null;
   notify_ok: boolean;
   notify_all: boolean;
+  notify_reminders: boolean;
 };
 
-/** Every member of a household, for the notification fan-out. */
+/** Every member of a household, for the notification and reminder fan-out. */
 export async function groupMembers(groupId: string): Promise<Member[]> {
   const { data } = await getDb()
     .from("members")
-    .select("user_id,display_name,notify_ok,notify_all")
+    .select("user_id,display_name,notify_ok,notify_all,notify_reminders")
     .eq("group_id", groupId);
   return (data as Member[]) ?? [];
 }
@@ -288,4 +289,73 @@ export async function recentReadingBySender(
  * rather than skipping ones that already have a value. The version shipped in M3
  * already does this — no change needed, this note is here so future edits keep it.
  */
- 
+
+// ------------------------------------------------------------- reminders cron
+
+export type HouseholdSettings = {
+  group_id: string;
+  tz: string;
+  slots: SlotDef[] | null;
+};
+
+/** Every household's settings row, for the reminder cron to scan. */
+export async function allSettings(): Promise<HouseholdSettings[]> {
+  const { data } = await getDb().from("settings").select("group_id,tz,slots");
+  return (data as HouseholdSettings[]) ?? [];
+}
+
+/** Whether a group has logged anything at all recently — inactive households don't get chased. */
+export async function hasRecentReadings(groupId: string, sinceIso: string): Promise<boolean> {
+  const { data } = await getDb()
+    .from("readings")
+    .select("id")
+    .eq("group_id", groupId)
+    .is("deleted_at", null)
+    .gte("posted_at", sinceIso)
+    .limit(1)
+    .maybeSingle();
+  return !!data;
+}
+
+/** Slot keys already logged for a given household and local date. */
+export async function loggedSlots(groupId: string, readingDate: string): Promise<Set<string>> {
+  const { data } = await getDb()
+    .from("readings")
+    .select("slot")
+    .eq("group_id", groupId)
+    .eq("reading_date", readingDate)
+    .is("deleted_at", null);
+  return new Set((data ?? []).map((r: { slot: string }) => r.slot));
+}
+
+/**
+ * Records that a (group, date, slot) reminder is going out, before the push is
+ * sent. Slots already recorded — by an earlier run today, or a duplicate
+ * invocation of this one — hit the primary key and are dropped silently; only
+ * the slot keys newly recorded here come back, so the caller knows exactly what
+ * is safe to mention in the message.
+ */
+export async function recordReminders(
+  groupId: string,
+  readingDate: string,
+  slotKeys: string[]
+): Promise<string[]> {
+  if (slotKeys.length === 0) return [];
+
+  const rows = slotKeys.map((slot_key) => ({
+    group_id: groupId,
+    reading_date: readingDate,
+    slot_key,
+  }));
+
+  const { data, error } = await getDb()
+    .from("reminders_sent")
+    .upsert(rows, { onConflict: "group_id,reading_date,slot_key", ignoreDuplicates: true })
+    .select("slot_key");
+
+  if (error) {
+    console.error("reminders_sent insert failed", { groupId, readingDate, err: error.message });
+    return [];
+  }
+  return (data ?? []).map((r: { slot_key: string }) => r.slot_key);
+}

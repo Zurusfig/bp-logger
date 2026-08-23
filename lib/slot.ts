@@ -3,15 +3,17 @@ export type SlotDef = {
   label: string;
   /** Local "HH:MM" at which this slot begins. */
   from: string;
+  /** Local "HH:MM" at which a missed-entry reminder fires. No remind_at = never reminded. */
+  remind_at?: string;
 };
 
 export const DEFAULT_SLOTS: SlotDef[] = [
-  { key: "wake", label: "ตื่นนอน", from: "04:00" },
-  { key: "after_med", label: "หลังยาเช้า", from: "08:30" },
-  { key: "bedtime", label: "ก่อนนอน", from: "15:00" },
+  { key: "wake", label: "ตื่นนอน", from: "04:00", remind_at: "09:00" },
+  { key: "after_med", label: "หลังยาเช้า", from: "08:30", remind_at: "09:00" },
+  { key: "bedtime", label: "ก่อนนอน", from: "15:00", remind_at: "22:00" },
 ];
 
-function minutes(hhmm: string): number {
+export function minutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;
 }
@@ -23,7 +25,8 @@ export function normalise(slots: SlotDef[]): SlotDef[] {
   return [...clean].sort((a, b) => minutes(a.from) - minutes(b.from));
 }
 
-function localParts(at: Date, tz: string) {
+/** Local calendar date and minutes-since-midnight for a household's tz. */
+export function localParts(at: Date, tz: string) {
   const fmt = new Intl.DateTimeFormat("en-CA", {
     timeZone: tz,
     year: "numeric",
