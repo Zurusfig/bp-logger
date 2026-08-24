@@ -184,12 +184,20 @@ export async function setImagePath(id: string, path: string): Promise<void> {
   await getDb().from("readings").update({ image_path: path }).eq("id", id);
 }
 
+export type CompleteResult = {
+  sys: number | null;
+  dia: number | null;
+  pulse: number | null;
+  /** True when this fill left no field null, i.e. the reading is now complete. */
+  completed: boolean;
+};
+
 /** Fill the fields a failed OCR left null, from numbers the sender typed. */
 export async function completeReading(
   id: string,
   vals: Record<string, number>,
   byUserId: string
-): Promise<void> {
+): Promise<CompleteResult> {
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = {
     ...vals,
@@ -200,14 +208,17 @@ export async function completeReading(
 
   const { data } = await getDb().from("readings").select("sys,dia,pulse").eq("id", id).single();
   const merged = { ...data, ...vals } as Record<string, number | null>;
+  const completed = merged.sys != null && merged.dia != null && merged.pulse != null;
 
-  if (merged.sys != null && merged.dia != null && merged.pulse != null) {
+  if (completed) {
     patch.needs_review = false;
     patch.reviewed_by = byUserId;
     patch.reviewed_at = now;
   }
 
   await getDb().from("readings").update(patch).eq("id", id);
+
+  return { sys: merged.sys ?? null, dia: merged.dia ?? null, pulse: merged.pulse ?? null, completed };
 }
 
 // ------------------------------------------------------------------ pending

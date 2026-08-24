@@ -138,6 +138,36 @@ export function msgTypedEntryByOther(
   );
 }
 
+/**
+ * Household fan-out: someone else's reading saved incomplete, some or all values
+ * unread. Never tells the reader to reply with numbers — pending is keyed by the
+ * sender's user_id, so only the sender's reply can fill it in. The edit link is
+ * the only way a non-sender can complete it.
+ */
+export function msgIncompleteByOther(
+  v: Vals,
+  readingId: string,
+  senderName?: string | null
+): string {
+  const lines = [`${nameOrNeutral(senderName)} บันทึกความดันแล้ว ข้อมูลไม่ครบ ต้องตรวจสอบ`];
+  const values = valueLine(v);
+  if (values) lines.push(values);
+  return withLink(lines, readingId, "แก้ไข");
+}
+
+/** Household fan-out: someone else's previously incomplete reading now has all values. */
+export function msgCompletedByOther(
+  v: Vals,
+  readingId: string,
+  senderName?: string | null
+): string {
+  return withLink(
+    [`${nameOrNeutral(senderName)} บันทึกความดันครบแล้ว`, valueLine(v)],
+    readingId,
+    "แก้ไข"
+  );
+}
+
 /** Wrong number of values typed. */
 export function msgWrongCount(missing: string[]): string {
   const labels = missing.map((f) => FIELD_LABEL[f]).join(" ");
