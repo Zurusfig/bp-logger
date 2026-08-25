@@ -83,18 +83,23 @@ export const ReportTable = forwardRef<HTMLDivElement, ReportTableProps>(function
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => {
+          {rows.map((r, i) => {
             const date = r.reading_date ?? r.taken_at.slice(0, 10);
+            const prevDate = i > 0 ? (rows[i - 1].reading_date ?? rows[i - 1].taken_at.slice(0, 10)) : null;
+            // A heavier rule where the date changes (over the thin RULE grid
+            // lines used everywhere else) marks day boundaries even though
+            // several readings from the same day share consecutive rows.
+            const dayTd = i > 0 && date !== prevDate ? { ...td, borderTop: `2px solid ${INK_FAINT}` } : td;
             return (
               <tr key={r.id}>
-                <td style={{ ...td, whiteSpace: "nowrap" }}>
+                <td style={{ ...dayTd, whiteSpace: "nowrap" }}>
                   {thaiDate(date)}
                   {showTime && <span style={{ color: INK_MUTED }}> · {bkkTime(r.taken_at)}</span>}
                   {showLabel && (
                     <div style={{ fontSize: "10pt", color: INK_FAINT }}>{slotLabel(r.slot, slots)}</div>
                   )}
                 </td>
-                <td style={td}>
+                <td style={dayTd}>
                   <span style={{ fontSize: "12pt", fontWeight: 600, color: INK }}>
                     {r.sys ?? "?"}/{r.dia ?? "?"}
                   </span>

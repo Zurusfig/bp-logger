@@ -29,8 +29,14 @@ const today = () => new Date().toISOString().slice(0, 10);
 function chipClass(active: boolean): string {
   return (
     "rounded-full border px-3 py-1.5 transition-colors duration-150 " +
-    (active ? "border-ink bg-ink text-paper" : "border-rule-strong bg-white text-ink-muted")
+    (active
+      ? "border-ink bg-white font-medium text-ink"
+      : "border-rule-strong bg-white text-ink-muted")
   );
+}
+
+function groupLabelClass(): string {
+  return "text-[12px] font-medium tracking-wide text-ink-faint";
 }
 
 function ReportInner() {
@@ -180,6 +186,27 @@ function ReportInner() {
     <main className="mx-auto min-h-screen w-full max-w-3xl bg-paper pb-24">
       <Nav />
 
+      <div className="no-print flex gap-5 border-b border-rule px-4 text-[15px]">
+        <button
+          onClick={() => setView("sheet")}
+          className={
+            "flex min-h-11 items-center border-b-2 transition-colors duration-150 " +
+            (view === "sheet" ? "border-ink font-medium text-ink" : "border-transparent text-ink-muted")
+          }
+        >
+          แผ่นสำหรับหมอ
+        </button>
+        <button
+          onClick={() => setView("table")}
+          className={
+            "flex min-h-11 items-center border-b-2 transition-colors duration-150 " +
+            (view === "table" ? "border-ink font-medium text-ink" : "border-transparent text-ink-muted")
+          }
+        >
+          ตารางบันทึก
+        </button>
+      </div>
+
       <div className="no-print space-y-3 px-4 pt-4">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <label className="text-[15px]">
@@ -219,33 +246,52 @@ function ReportInner() {
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2 text-[15px]">
-          <button onClick={() => setView("sheet")} className={chipClass(view === "sheet")}>
-            แผ่นสำหรับหมอ
-          </button>
-          <button onClick={() => setView("table")} className={chipClass(view === "table")}>
-            ตารางบันทึก
-          </button>
-        </div>
-
         {view === "table" && (
-          <div className="flex flex-wrap gap-2 text-[15px]">
-            <button onClick={() => setOrder("newest")} className={chipClass(order === "newest")}>
-              ล่าสุดก่อน
-            </button>
-            <button onClick={() => setOrder("oldest")} className={chipClass(order === "oldest")}>
-              เก่าสุดก่อน
-            </button>
-            <span className="mx-1 self-center text-rule-strong">|</span>
-            <button onClick={() => setShowTime((v) => !v)} className={chipClass(showTime)}>
-              แสดงเวลา
-            </button>
-            <button onClick={() => setShowLabel((v) => !v)} className={chipClass(showLabel)}>
-              แสดงช่วงเวลา
-            </button>
-            <button onClick={() => setShowPulse((v) => !v)} className={chipClass(showPulse)}>
-              แสดงชีพจร
-            </button>
+          <div className="space-y-3 border-t border-rule pt-3">
+            <div className="space-y-1.5">
+              <p className={groupLabelClass()}>เรียงลำดับ</p>
+              <div className="flex flex-wrap gap-2 text-[15px]">
+                <button onClick={() => setOrder("newest")} className={chipClass(order === "newest")}>
+                  ล่าสุดก่อน
+                </button>
+                <button onClick={() => setOrder("oldest")} className={chipClass(order === "oldest")}>
+                  เก่าสุดก่อน
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <p className={groupLabelClass()}>แสดงข้อมูล</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-2 text-[15px] text-ink-muted">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={showTime}
+                    onChange={(e) => setShowTime(e.target.checked)}
+                    className="h-4 w-4 rounded border-rule-strong accent-ink"
+                  />
+                  เวลา
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={showLabel}
+                    onChange={(e) => setShowLabel(e.target.checked)}
+                    className="h-4 w-4 rounded border-rule-strong accent-ink"
+                  />
+                  ช่วงเวลา
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={showPulse}
+                    onChange={(e) => setShowPulse(e.target.checked)}
+                    className="h-4 w-4 rounded border-rule-strong accent-ink"
+                  />
+                  ชีพจร
+                </label>
+              </div>
+            </div>
           </div>
         )}
       </div>

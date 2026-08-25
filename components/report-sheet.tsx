@@ -53,6 +53,10 @@ export const ReportSheet = forwardRef<HTMLDivElement, ReportProps>(function Repo
   };
   const td: React.CSSProperties = {
     border,
+    // Every row here is a different day, so a heavier rule between rows (over
+    // the thin RULE grid lines used elsewhere) makes each day read as its own
+    // band rather than blurring into the next.
+    borderBottom: `2px solid ${INK_FAINT}`,
     padding: "3px 6px",
     fontSize: "11pt",
     lineHeight: 1.45,
