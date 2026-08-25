@@ -44,6 +44,32 @@ export function ReadingsTableSkeleton() {
   );
 }
 
+/** Mirrors the trends page: range chips, three chart bands, a numbers block. */
+export function TrendsSkeleton() {
+  return (
+    <div>
+      <div className="flex gap-2 border-b border-rule px-4 py-3">
+        <Skeleton className="h-8 w-16 rounded-full" />
+        <Skeleton className="h-8 w-16 rounded-full" />
+        <Skeleton className="h-8 w-20 rounded-full" />
+      </div>
+
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="border-b border-rule px-4 py-3">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="mt-3 h-32 w-full" />
+        </div>
+      ))}
+
+      <div className="space-y-2 px-4 py-4">
+        <Skeleton className="h-4 w-full max-w-64" />
+        <Skeleton className="h-4 w-full max-w-48" />
+        <Skeleton className="h-4 w-full max-w-56" />
+      </div>
+    </div>
+  );
+}
+
 /** Mirrors ReportSheet's grid: title, header row, ~ten day rows. */
 export function ReportSheetSkeleton() {
   const cols = 4;

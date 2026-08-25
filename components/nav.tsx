@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const LINKS = [
   { href: "/app", label: "รายการ" },
   { href: "/app/report", label: "สรุปสำหรับหมอ" },
+  { href: "/app/trends", label: "กราฟ" },
 ] as const;
 
 export function Nav() {
