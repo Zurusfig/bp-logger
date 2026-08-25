@@ -6,6 +6,7 @@ import { Loader2, X } from "lucide-react";
 import { initLiff, apiFetch, isInLiffClient, openExternally, type LiffSession } from "@/lib/liff";
 import { Nav } from "@/components/nav";
 import { ReportSheet } from "@/components/report-sheet";
+import { ReportTable } from "@/components/report-table";
 import { ReportSheetSkeleton } from "@/components/skeleton";
 import { useDelayedFlag } from "@/lib/use-delayed-flag";
 import { DEFAULT_SLOTS, type SlotDef } from "@/lib/slot";
@@ -42,6 +43,11 @@ function ReportInner() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [view, setView] = useState<"sheet" | "table">("sheet");
+  const [order, setOrder] = useState<"newest" | "oldest">("newest");
+  const [showTime, setShowTime] = useState(true);
+  const [showLabel, setShowLabel] = useState(true);
+  const [showPulse, setShowPulse] = useState(true);
   const sheet = useRef<HTMLDivElement>(null);
   const loading = useDelayedFlag(!data && !error);
 
@@ -212,17 +218,62 @@ function ReportInner() {
             </button>
           )}
         </div>
+
+        <div className="flex flex-wrap gap-2 text-[15px]">
+          <button onClick={() => setView("sheet")} className={chipClass(view === "sheet")}>
+            แผ่นสำหรับหมอ
+          </button>
+          <button onClick={() => setView("table")} className={chipClass(view === "table")}>
+            ตารางบันทึก
+          </button>
+        </div>
+
+        {view === "table" && (
+          <div className="flex flex-wrap gap-2 text-[15px]">
+            <button onClick={() => setOrder("newest")} className={chipClass(order === "newest")}>
+              ล่าสุดก่อน
+            </button>
+            <button onClick={() => setOrder("oldest")} className={chipClass(order === "oldest")}>
+              เก่าสุดก่อน
+            </button>
+            <span className="mx-1 self-center text-rule-strong">|</span>
+            <button onClick={() => setShowTime((v) => !v)} className={chipClass(showTime)}>
+              แสดงเวลา
+            </button>
+            <button onClick={() => setShowLabel((v) => !v)} className={chipClass(showLabel)}>
+              แสดงช่วงเวลา
+            </button>
+            <button onClick={() => setShowPulse((v) => !v)} className={chipClass(showPulse)}>
+              แสดงชีพจร
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="mt-4 overflow-x-auto border-y border-rule bg-white print:overflow-visible print:border-none">
-        <ReportSheet
-          ref={sheet}
-          readings={data.readings}
-          slots={data.settings?.slots ?? DEFAULT_SLOTS}
-          patientName={data.settings?.patient_name ?? null}
-          from={from || data.range.from}
-          to={to}
-        />
+        {view === "sheet" ? (
+          <ReportSheet
+            ref={sheet}
+            readings={data.readings}
+            slots={data.settings?.slots ?? DEFAULT_SLOTS}
+            patientName={data.settings?.patient_name ?? null}
+            from={from || data.range.from}
+            to={to}
+          />
+        ) : (
+          <ReportTable
+            ref={sheet}
+            readings={data.readings}
+            slots={data.settings?.slots ?? DEFAULT_SLOTS}
+            patientName={data.settings?.patient_name ?? null}
+            from={from || data.range.from}
+            to={to}
+            order={order}
+            showTime={showTime}
+            showLabel={showLabel}
+            showPulse={showPulse}
+          />
+        )}
       </div>
 
       <div className="no-print fixed inset-x-0 bottom-0 mx-auto flex max-w-3xl gap-2 border-t border-rule bg-white p-4">

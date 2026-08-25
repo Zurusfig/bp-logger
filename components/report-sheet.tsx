@@ -3,46 +3,14 @@
 import { forwardRef } from "react";
 import type { ReadingDto } from "@/app/api/readings/route";
 import { normalise, type SlotDef } from "@/lib/slot";
+import { INK, INK_MUTED, INK_FAINT, RULE, HEADER_TINT, thaiDate, thaiFull, bkkTime } from "@/lib/report-format";
 
 /**
  * The doctor's sheet. Days run down the page, slots across it, which is how paper
  * blood-pressure diaries are laid out and what keeps a month inside one A4 page.
  * A flat one-row-per-reading table would run to three pages for the same range.
- *
- * Colours are hex on purpose: this element is rasterised to PNG, and the canvas
- * library cannot parse the oklch() values Tailwind emits. The hex values below
- * mirror the app's ink/paper/rule tokens in app/globals.css so the printed sheet
- * and the on-screen app read as the same document.
+ * For that flat layout instead, see ReportTable.
  */
-
-const INK = "#211f1c";
-const INK_MUTED = "#6b655d";
-const INK_FAINT = "#938c7e";
-const RULE = "#cabfae";
-const HEADER_TINT = "#f4f1ea";
-
-const TH_MONTHS = [
-  "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
-  "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
-];
-
-function thaiDate(iso: string): string {
-  const [, m, d] = iso.split("-").map(Number);
-  return `${d} ${TH_MONTHS[m - 1]}`;
-}
-
-function thaiFull(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return `${d} ${TH_MONTHS[m - 1]} ${y + 543}`;
-}
-
-const bkkTime = (iso: string) =>
-  new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Bangkok",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(iso));
 
 export type ReportProps = {
   readings: ReadingDto[];
