@@ -1,13 +1,20 @@
 import fs from "fs";
 import path from "path";
 import { parse } from "csv-parse/sync";
-import { readDisplayCorrected, type Reading } from "../lib/ocr";
+import { readDisplayCorrected, needsReview, type Reading } from "../lib/ocr";
 
 const SPLIT = process.argv[2] ?? "dev"; // dev | test | synthetic | negative
 const LIMIT = Number(process.argv[3] ?? 0); // 0 = all; use a small number while tuning
 const CONCURRENCY = 4;
-const CONFIDENT = 0.8; // a WRONG answer at or above this is a confident-wrong
 const FIELDS = ["sys", "dia", "pulse"] as const;
+
+/**
+ * The review queue here is production's own gate, not a number picked for the
+ * harness. needsReview() applies REVIEW_THRESHOLD plus the null and validation
+ * checks, so "flagged" below means exactly what it means in the running system.
+ * A confident-wrong is therefore a wrong value on a row production would have
+ * saved clean, which is the failure this whole design exists to prevent.
+ */
 
 type Row = Record<string, string>;
 type Result = { row: Row; pred: Reading | null; error?: string };
@@ -132,7 +139,7 @@ function reportAccuracy(results: Result[]) {
 
     if (!pred.is_bp_display) errors.push(`${row.filename}  rejected as non-BP  [${tags}]`);
 
-    const flagged = pred.confidence < 0.75;
+    const flagged = needsReview(pred);
     if (flagged) reviewFlagged++;
     let hadWrong = false;
 
@@ -159,7 +166,7 @@ function reportAccuracy(results: Result[]) {
           `${row.filename}  ${f}  expected ${exp ?? "null"}  got ${got}  ` +
             `conf=${pred.confidence}  rot=${pred.orientation_deg}  [${tags}]`
         );
-        if (pred.confidence >= CONFIDENT) confidentWrong++;
+        if (!flagged) confidentWrong++;
       }
     }
     if (hadWrong) imagesWithWrong++;
@@ -193,6 +200,25 @@ function reportAccuracy(results: Result[]) {
 
 (async () => {
   const results = await run();
+
+  // Machine-readable dump alongside the printed report: the numbers above are a
+  // view at one threshold, and re-scoring at another must not cost another run.
+  fs.mkdirSync("eval/results", { recursive: true });
+  fs.writeFileSync(
+    `eval/results/${SPLIT}.json`,
+    JSON.stringify(
+      results.map(({ row, pred, error }) => ({
+        filename: row.filename,
+        conditions: row.conditions ?? "",
+        label: { sys: num(row.sys), dia: num(row.dia), pulse: num(row.pulse) },
+        pred,
+        error: error ?? null,
+      })),
+      null,
+      2
+    )
+  );
+
   if (SPLIT === "negative") reportNegative(results);
   else if (SPLIT === "synthetic") reportSynthetic(results);
   else reportAccuracy(results);
