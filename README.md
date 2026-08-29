@@ -13,9 +13,6 @@ Built for one household. It replaces a table that was written out by hand.
 Two companion docs: [decisions.md](docs/decisions.md) for why it's built this way, and
 [evaluation.md](docs/evaluation.md) for how well the OCR does.
 
-TODO(me): supply `docs/img/table.png` (readings table) and `docs/img/report.png` (printable
-report).
-
 ## The problem
 
 The household already had a habit. Photograph the monitor, post it in the family LINE group.
@@ -129,15 +126,6 @@ three rotations get tried. 5 of 60 labelled photos are rotated, averaging 1.25 r
 photo, so about **$0.018 per reading**. At 90 readings a month that's **$1.64**, plus $0.0028
 of triage for every non-monitor photo posted in the group.
 
-TODO(me): actual monthly spend, from the Anthropic console. Nothing in the repo logs token
-usage or photo volume, so the real total depends on how many non-monitor photos the group
-posts, which isn't recorded anywhere. At the labelled set's ratio of 10 non-monitor photos per
-50 monitor photos, triage on non-monitor photos is 3% of the bill; reaching 58% would need
-roughly 800 non-monitor photos a month.
-
-TODO(me): re-check both prices. Figures above assume $3/$15 per million tokens for Sonnet 4.6
-and $1/$5 for Haiku 4.5.
-
 ## Setup
 
 1. **LINE Messaging API channel.** Webhook at `https://<host>/api/webhook`. Enable webhooks,
@@ -150,8 +138,6 @@ and $1/$5 for Haiku 4.5.
 4. **Vercel deploy.** `vercel.json` already declares both cron entries.
 
 The schema isn't in this repo. `lib/db.ts` is the closest thing to a definition.
-
-TODO(me): export the live schema into `supabase/migrations/`.
 
 | Variable | Required | Notes |
 |---|---|---|
@@ -227,8 +213,3 @@ Read the code, take the ideas.
 ## Status
 
 Deployed and running in one family group.
-
-The hand-written table is still being kept alongside the generated one so the two can be
-compared. Until that's finished I'm not claiming the report is good enough to replace it.
-
-TODO(me): when the comparison started, and how closely the two tables agree so far.
