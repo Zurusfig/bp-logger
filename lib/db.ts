@@ -267,10 +267,6 @@ export async function bumpUsage(groupId: string, ocr = 0, triage = 0): Promise<n
   return (data as number) ?? 0;
 }
 
-// ---------------------------------------------------------------------------
-// M5: append to lib/db.ts
-// ---------------------------------------------------------------------------
- 
 /**
  * The sender's most recent reading within the last N minutes, used when someone
  * types three numbers to correct a value the OCR got wrong.
@@ -293,13 +289,6 @@ export async function recentReadingBySender(
  
   return data?.id ?? null;
 }
- 
-/**
- * completeReading currently only fills nulls in practice. For M5 it must also
- * overwrite existing values, so make sure its update applies every key in `vals`
- * rather than skipping ones that already have a value. The version shipped in M3
- * already does this — no change needed, this note is here so future edits keep it.
- */
 
 // ------------------------------------------------------------- reminders cron
 

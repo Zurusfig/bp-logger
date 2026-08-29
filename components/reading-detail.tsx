@@ -5,6 +5,7 @@ import { Loader2, X } from "lucide-react";
 import { apiFetch, type LiffSession } from "@/lib/liff";
 import { Skeleton } from "@/components/skeleton";
 import type { ReadingDto } from "@/app/api/readings/route";
+import { DEFAULT_SLOTS, slotLabel, type SlotDef } from "@/lib/slot";
 
 type Detail = ReadingDto & {
   image_url: string | null;
@@ -12,8 +13,6 @@ type Detail = ReadingDto & {
   edited_by: string | null;
   reviewed_by: string | null;
 };
-
-const SLOT_LABEL: Record<string, string> = { morning: "เช้า", evening: "ก่อนนอน" };
 
 const bkk = (iso: string, opts: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", ...opts }).format(
@@ -68,12 +67,14 @@ export function ReadingDetail({
   reading,
   session,
   members,
+  slots = DEFAULT_SLOTS,
   onClose,
   onChanged,
 }: {
   reading: ReadingDto;
   session: LiffSession;
   members: Record<string, string>;
+  slots?: SlotDef[];
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -190,7 +191,7 @@ export function ReadingDetail({
           <div>
             <div className="text-[15px] font-medium text-ink">
               {bkk(r.taken_at, { day: "numeric", month: "short" })}{" "}
-              {SLOT_LABEL[r.slot ?? ""] ?? ""}{" "}
+              {slotLabel(r.slot, slots)}{" "}
               {bkk(r.taken_at, { hour: "2-digit", minute: "2-digit", hour12: false })}
             </div>
             <div className="text-[13px] text-ink-muted">

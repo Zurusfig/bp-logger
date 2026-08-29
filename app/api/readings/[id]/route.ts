@@ -1,6 +1,8 @@
 import { sessionFromRequest } from "@/lib/auth";
 import { getDb, signedImageUrl } from "@/lib/db";
 import { deriveSlot } from "@/lib/slot";
+import { validate } from "@/lib/ocr";
+import { ISSUE_LABEL } from "@/lib/messages";
 
 export const runtime = "nodejs";
 
@@ -31,12 +33,6 @@ export async function GET(
   });
 }
 
-
-const RANGES: Record<string, [number, number]> = {
-  sys: [60, 260],
-  dia: [30, 160],
-  pulse: [30, 180],
-};
 
 type Body = {
   sys?: number | null;
@@ -86,18 +82,28 @@ export async function PATCH(
     if (typeof v !== "number" || !Number.isInteger(v)) {
       return Response.json({ error: `${f} must be a whole number` }, { status: 400 });
     }
-    const [lo, hi] = RANGES[f];
-    if (v < lo || v > hi) {
-      return Response.json({ error: `${f} ต้องอยู่ระหว่าง ${lo} ถึง ${hi}` }, { status: 400 });
-    }
     patch[f] = v;
   }
 
   const merged = { ...current, ...patch } as Record<string, number | null>;
-  if (merged.sys != null && merged.dia != null) {
-    if (merged.sys <= merged.dia) {
-      return Response.json({ error: "SYS ต้องมากกว่า DIA" }, { status: 400 });
-    }
+
+  // The same gate the OCR path runs, against the merged row rather than just the
+  // incoming fields — editing one value can only be judged alongside the two it
+  // has to agree with. Previously this route re-implemented ranges and sys > dia
+  // and omitted the gap rule, so an edit could save what OCR would have rejected.
+  const { ok, issues } = validate({
+    sys: merged.sys,
+    dia: merged.dia,
+    pulse: merged.pulse,
+    orientation_deg: 0,
+    observations: "",
+    is_bp_display: true,
+    irregular_flag: null,
+    confidence: 1,
+  });
+  if (!ok) {
+    const reasons = issues.map((i) => ISSUE_LABEL[i] ?? i).join(" ");
+    return Response.json({ error: reasons }, { status: 400 });
   }
 
   // Changing the time can move a reading to a different day or slot, so both are

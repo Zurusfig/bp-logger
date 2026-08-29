@@ -188,6 +188,7 @@ function AppInner() {
           reading={selected}
           session={session}
           members={data.members}
+          slots={data.settings?.slots ?? DEFAULT_SLOTS}
           onClose={() => setSelected(null)}
           onChanged={load}
         />

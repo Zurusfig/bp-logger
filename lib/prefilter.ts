@@ -97,16 +97,3 @@ Answer with exactly one word: YES or NO.`,
   // Default to YES on anything unexpected — a wasted read beats a lost reading.
   return !text.startsWith("NO");
 }
-
-/**
- * Stage 3 — burst detection.
- *
- * Trip albums arrive as many images from one sender within seconds. Real readings
- * arrive alone, or as a pair minutes apart. This does not drop anything on its own;
- * pass the result to the caller so it can skip triage on an obvious album.
- */
-export function isBurst(timestampsMs: number[], windowMs = 30_000, threshold = 5): boolean {
-  if (timestampsMs.length < threshold) return false;
-  const recent = timestampsMs.filter((t) => Date.now() - t < windowMs);
-  return recent.length >= threshold;
-}

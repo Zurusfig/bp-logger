@@ -175,7 +175,8 @@ export function msgWrongCount(missing: string[]): string {
   return [`ต้องการค่า ${labels}`, `พิมพ์ตอบกลับ เช่น ${example}`].join("\n");
 }
 
-const ISSUE_LABEL: Record<string, string> = {
+/** Thai text for each issue string validate() can return, in lib/ocr.ts. */
+export const ISSUE_LABEL: Record<string, string> = {
   "sys out of range": "SYS อยู่นอกช่วงที่เป็นไปได้",
   "dia out of range": "DIA อยู่นอกช่วงที่เป็นไปได้",
   "pulse out of range": "ชีพจรอยู่นอกช่วงที่เป็นไปได้",

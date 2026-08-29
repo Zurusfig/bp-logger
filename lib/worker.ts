@@ -169,16 +169,6 @@ async function handleImage(e: LineEvent): Promise<void> {
   await notify(groupId, userId, id, cleaned, needsReviewFlag);
 }
 
-// ---------------------------------------------------------------------------
-// M5: replace the existing notify() and handleText() in lib/worker.ts with these,
-// and add this import at the top of the file:
-//
-//   import {
-//     msgSaved, msgSavedUnsure, msgPartial, msgUnreadable,
-//     msgUpdated, msgWrongCount,
-//   } from "./messages";
-// ---------------------------------------------------------------------------
-
 /**
  * Pushes the same reading to every other household member who wants to hear
  * about it (notify_ok AND notify_all). Runs concurrently and never throws — a
