@@ -11,7 +11,8 @@ opens the web app and prints a one-page summary.
 Built for one household. It replaces a table that was written out by hand.
 
 Two companion docs: [decisions.md](docs/decisions.md) for why it's built this way, and
-[evaluation.md](docs/evaluation.md) for how well the OCR does.
+[evaluation.md](docs/evaluation.md) for how well the OCR does. There's also a write-up of the
+whole project on Medium: [Reading my grandfather's blood pressure monitor with a LINE bot](https://medium.com/@zagif2151382/reading-my-grandfathers-blood-pressure-monitor-with-a-line-bot-3ac6f7661d48?sharedUserId=zagif2151382).
 
 TODO(me): supply `docs/img/table.png` (readings table) and `docs/img/report.png` (printable
 report).
@@ -107,11 +108,14 @@ an answer, since it returns null when unsure.
 
 | | dev (25 images) | held out (20 images) |
 |---|---|---|
-| Correct | 59 of 75 fields | 48 of 60 fields |
-| Wrong | 3 | 2 |
-| Abstained | 13 | 10 |
-| Precision | 95.2% | 96.0% |
-| Wrong values that slipped past review | 0 | 1 |
+| Correct | 76.0-81.3% | 78.3-83.3% |
+| Wrong | 4.0-6.7% | 1.7-6.7% |
+| Abstained | 12.0-18.7% | 15.0% |
+| Precision | 92.4-95.2% | 92.2-98.0% |
+| Flagged for review | 21/25 | 18-19/20 |
+
+Produced at `REVIEW_THRESHOLD = 0.95`, `temperature: 0`. Runs are not deterministic even at
+temperature 0 — these are ranges across three runs per split, not a single measurement.
 
 Ten photos that aren't monitors: all rejected. Five with digits covered: all eight covered
 fields came back null.
@@ -132,8 +136,10 @@ of triage for every non-monitor photo posted in the group.
 TODO(me): actual monthly spend, from the Anthropic console. Nothing in the repo logs token
 usage or photo volume, so the real total depends on how many non-monitor photos the group
 posts, which isn't recorded anywhere. At the labelled set's ratio of 10 non-monitor photos per
-50 monitor photos, triage on non-monitor photos is 3% of the bill; reaching 58% would need
-roughly 800 non-monitor photos a month.
+50 monitor photos, triage on non-monitor photos is 3% of the bill today. That share would only
+reach a hypothetical 58% if the group started posting roughly 800 non-monitor photos a month —
+a breakeven threshold, not a measurement; nothing in the repo says actual volume is anywhere
+near it.
 
 TODO(me): re-check both prices. Figures above assume $3/$15 per million tokens for Sonnet 4.6
 and $1/$5 for Haiku 4.5.
@@ -149,9 +155,7 @@ and $1/$5 for Haiku 4.5.
    through short-lived signed URLs.
 4. **Vercel deploy.** `vercel.json` already declares both cron entries.
 
-The schema isn't in this repo. `lib/db.ts` is the closest thing to a definition.
-
-TODO(me): export the live schema into `supabase/migrations/`.
+The schema is in [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql).
 
 | Variable | Required | Notes |
 |---|---|---|
