@@ -14,9 +14,6 @@ Two companion docs: [decisions.md](docs/decisions.md) for why it's built this wa
 [evaluation.md](docs/evaluation.md) for how well the OCR does. There's also a write-up of the
 whole project on Medium: [Reading my grandfather's blood pressure monitor with a LINE bot](https://medium.com/@zagif2151382/reading-my-grandfathers-blood-pressure-monitor-with-a-line-bot-3ac6f7661d48?sharedUserId=zagif2151382).
 
-TODO(me): supply `docs/img/table.png` (readings table) and `docs/img/report.png` (printable
-report).
-
 ## The problem
 
 The household already had a habit. Photograph the monitor, post it in the family LINE group.
@@ -231,8 +228,3 @@ Read the code, take the ideas.
 ## Status
 
 Deployed and running in one family group.
-
-The hand-written table is still being kept alongside the generated one so the two can be
-compared. Until that's finished I'm not claiming the report is good enough to replace it.
-
-TODO(me): when the comparison started, and how closely the two tables agree so far.
