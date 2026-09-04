@@ -1,0 +1,44 @@
+.........................
+
+split: dev   images: 25   fields: 75
+
+  CORRECT    57   76.0%
+  WRONG       4   5.3%   <- real errors
+  ABSTAIN    14   18.7%   <- safe, needs review
+
+  precision (correct of answered)  93.4%
+
+by condition        correct  wrong  abstain
+  blur             32      3       13    66.7%
+  clean             6      0        0    100.0%
+  colorcast        10      0        2    83.3%
+  dark             18      0        9    66.7%
+  glare            19      2        3    79.2%
+  partial           5      1        6    41.7%
+  rotated           5      1        0    83.3%
+  tilted            9      0        0    100.0%
+
+CONFIDENT-WRONG  0   PASS
+review queue: 21/25 flagged, caught 4/4 images containing a wrong field
+
+WRONG:
+img_017.jpg  dia  expected 59  got 58  conf=0.6  rot=90  [rotated]
+img_026.jpg  sys  expected 145  got 113  conf=0.55  rot=0  [blur,glare]
+img_027.jpg  sys  expected 146  got 173  conf=0.45  rot=0  [blur,glare]
+img_036.jpg  pulse  expected 55  got 147  conf=0.5  rot=0  [blur,partial]
+
+ABSTAIN:
+img_012.jpg  dia  expected 63  conf=0.5  [blur,dark]
+img_012.jpg  pulse  expected 58  conf=0.5  [blur,dark]
+img_013.jpg  sys  expected 155  conf=0.5  [blur,partial]
+img_013.jpg  dia  expected 62  conf=0.5  [blur,partial]
+img_014.jpg  pulse  expected 79  conf=0.5  [blur]
+img_019.jpg  dia  expected 74  conf=0.5  [blur,colorcast,dark,glare,partial]
+img_027.jpg  dia  expected 75  conf=0.45  [blur,glare]
+img_035.jpg  dia  expected 75  conf=0.55  [colorcast,dark,glare]
+img_036.jpg  dia  expected 76  conf=0.5  [blur,partial]
+img_040.jpg  dia  expected 68  conf=0.45  [blur,dark]
+img_040.jpg  pulse  expected 57  conf=0.45  [blur,dark]
+img_043.jpg  pulse  expected 56  conf=0.6  [blur,dark]
+img_044.jpg  dia  expected 69  conf=0.5  [blur,dark,partial]
+img_044.jpg  pulse  expected 75  conf=0.5  [blur,dark,partial]

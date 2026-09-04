@@ -1,0 +1,402 @@
+[
+  {
+    "filename": "img_001.jpg",
+    "conditions": "blur,colorcast,dark,glare,rotated",
+    "label": {
+      "sys": 100,
+      "dia": 59,
+      "pulse": 80
+    },
+    "pred": {
+      "orientation_deg": 270,
+      "observations": "OMRON wordmark visible at top, START/STOP button at bottom. Glare band obscures parts of digits. Image blurry. Top row reads 94, middle 5x (partially obscured), bottom 48.",
+      "is_bp_display": true,
+      "sys": 100,
+      "dia": null,
+      "pulse": 80,
+      "irregular_flag": false,
+      "confidence": 0.6
+    },
+    "error": null
+  },
+  {
+    "filename": "img_003.jpg",
+    "conditions": "clean",
+    "label": {
+      "sys": 130,
+      "dia": 71,
+      "pulse": 59
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom, SYS/DIA/PULSE labels visible on left. Image is upright. All digits clearly legible.",
+      "is_bp_display": true,
+      "sys": 130,
+      "dia": 71,
+      "pulse": 59,
+      "irregular_flag": false,
+      "confidence": 0.95
+    },
+    "error": null
+  },
+  {
+    "filename": "img_004.jpg",
+    "conditions": "colorcast",
+    "label": {
+      "sys": 154,
+      "dia": 78,
+      "pulse": 89
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom, SYS/DIA/PULSE labels visible on left. Image upright. All digits clearly readable.",
+      "is_bp_display": true,
+      "sys": 154,
+      "dia": 78,
+      "pulse": 89,
+      "irregular_flag": false,
+      "confidence": 0.92
+    },
+    "error": null
+  },
+  {
+    "filename": "img_005.jpg",
+    "conditions": "glare",
+    "label": {
+      "sys": 143,
+      "dia": 58,
+      "pulse": 87
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom, SYS/DIA/PULSE labels visible on left. All digits clearly readable, minor glare top-right does not obscure digits.",
+      "is_bp_display": true,
+      "sys": 143,
+      "dia": 58,
+      "pulse": 87,
+      "irregular_flag": false,
+      "confidence": 0.92
+    },
+    "error": null
+  },
+  {
+    "filename": "img_011.jpg",
+    "conditions": "blur,dark",
+    "label": {
+      "sys": 129,
+      "dia": 62,
+      "pulse": 56
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom, SYS and DIA labels visible on left. Pulse row obscured by glare/blur.",
+      "is_bp_display": true,
+      "sys": 129,
+      "dia": 62,
+      "pulse": null,
+      "irregular_flag": false,
+      "confidence": 0.55
+    },
+    "error": null
+  },
+  {
+    "filename": "img_015.jpg",
+    "conditions": "blur,dark",
+    "label": {
+      "sys": 125,
+      "dia": 65,
+      "pulse": 67
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom confirms upright. Image is blurry; bottom row partially cut off.",
+      "is_bp_display": true,
+      "sys": 125,
+      "dia": 65,
+      "pulse": null,
+      "irregular_flag": false,
+      "confidence": 0.5
+    },
+    "error": null
+  },
+  {
+    "filename": "img_016.jpg",
+    "conditions": "blur,partial",
+    "label": {
+      "sys": 113,
+      "dia": 66,
+      "pulse": 68
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom, SYS/DIA/PULSE labels on left confirm upright. Image is slightly blurred.",
+      "is_bp_display": true,
+      "sys": 113,
+      "dia": 66,
+      "pulse": 68,
+      "irregular_flag": false,
+      "confidence": 0.7
+    },
+    "error": null
+  },
+  {
+    "filename": "img_020.jpg",
+    "conditions": "blur,colorcast,dark,glare",
+    "label": {
+      "sys": 148,
+      "dia": 65,
+      "pulse": 84
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom confirms upright. Image blurry and glare band partially obscures right side of digits.",
+      "is_bp_display": true,
+      "sys": 148,
+      "dia": 65,
+      "pulse": 84,
+      "irregular_flag": false,
+      "confidence": 0.6
+    },
+    "error": null
+  },
+  {
+    "filename": "img_021.jpg",
+    "conditions": "blur,glare",
+    "label": {
+      "sys": 122,
+      "dia": 64,
+      "pulse": 88
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom, image upright. Glare band partially covers middle rows but digits still discernible.",
+      "is_bp_display": true,
+      "sys": 122,
+      "dia": 64,
+      "pulse": 88,
+      "irregular_flag": false,
+      "confidence": 0.6
+    },
+    "error": null
+  },
+  {
+    "filename": "img_023.jpg",
+    "conditions": "blur,glare",
+    "label": {
+      "sys": 103,
+      "dia": 68,
+      "pulse": 60
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom, image upright. Slight glare band but digits visible. Image somewhat blurry.",
+      "is_bp_display": true,
+      "sys": 103,
+      "dia": 68,
+      "pulse": 60,
+      "irregular_flag": false,
+      "confidence": 0.65
+    },
+    "error": null
+  },
+  {
+    "filename": "img_024.jpg",
+    "conditions": "blur,glare,partial",
+    "label": {
+      "sys": 152,
+      "dia": 64,
+      "pulse": 87
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom confirms upright. Top row shows 94 clearly. Middle and bottom rows partially obscured by glare/reflection.",
+      "is_bp_display": true,
+      "sys": 152,
+      "dia": null,
+      "pulse": null,
+      "irregular_flag": null,
+      "confidence": 0.5
+    },
+    "error": null
+  },
+  {
+    "filename": "img_025.jpg",
+    "conditions": "rotated",
+    "label": {
+      "sys": 103,
+      "dia": 70,
+      "pulse": 68
+    },
+    "pred": {
+      "orientation_deg": 270,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom, SYS/DIA/PULSE labels visible on left. All rows clearly legible.",
+      "is_bp_display": true,
+      "sys": 103,
+      "dia": 70,
+      "pulse": 68,
+      "irregular_flag": false,
+      "confidence": 0.9
+    },
+    "error": null
+  },
+  {
+    "filename": "img_028.jpg",
+    "conditions": "glare,tilted",
+    "label": {
+      "sys": 123,
+      "dia": 70,
+      "pulse": 62
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom, SYS/DIA/PULSE labels visible on left. All three rows clearly legible despite minor glare.",
+      "is_bp_display": true,
+      "sys": 123,
+      "dia": 70,
+      "pulse": 62,
+      "irregular_flag": false,
+      "confidence": 0.92
+    },
+    "error": null
+  },
+  {
+    "filename": "img_029.jpg",
+    "conditions": "dark",
+    "label": {
+      "sys": 110,
+      "dia": 74,
+      "pulse": 55
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP at bottom, SYS/DIA labels visible left side. Pulse row partially visible but digits unclear due to blur/angle.",
+      "is_bp_display": true,
+      "sys": 110,
+      "dia": 74,
+      "pulse": null,
+      "irregular_flag": false,
+      "confidence": 0.7
+    },
+    "error": null
+  },
+  {
+    "filename": "img_030.jpg",
+    "conditions": "blur,glare",
+    "label": {
+      "sys": 105,
+      "dia": 57,
+      "pulse": 68
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom, SYS/DIA/PULSE labels on left confirm upright. DIA row partially obscured by glare/reflection band.",
+      "is_bp_display": true,
+      "sys": 105,
+      "dia": null,
+      "pulse": 146,
+      "irregular_flag": false,
+      "confidence": 0.5
+    },
+    "error": null
+  },
+  {
+    "filename": "img_031.jpg",
+    "conditions": "blur,partial,rotated",
+    "label": {
+      "sys": 103,
+      "dia": 68,
+      "pulse": 79
+    },
+    "pred": {
+      "orientation_deg": 90,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom, SYS/DIA labels visible left side. Image is blurry affecting digit confidence.",
+      "is_bp_display": true,
+      "sys": 103,
+      "dia": 68,
+      "pulse": 79,
+      "irregular_flag": true,
+      "confidence": 0.6
+    },
+    "error": null
+  },
+  {
+    "filename": "img_032.jpg",
+    "conditions": "clean",
+    "label": {
+      "sys": 125,
+      "dia": 68,
+      "pulse": 73
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom, SYS/DIA/PULSE labels visible on left. Image is upright. All digits clearly readable.",
+      "is_bp_display": true,
+      "sys": 125,
+      "dia": 68,
+      "pulse": 73,
+      "irregular_flag": true,
+      "confidence": 0.92
+    },
+    "error": null
+  },
+  {
+    "filename": "img_034.jpg",
+    "conditions": "colorcast,dark,glare",
+    "label": {
+      "sys": 121,
+      "dia": 68,
+      "pulse": 80
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom, image upright. Glare band partially obscures left-side labels but three digit rows visible.",
+      "is_bp_display": true,
+      "sys": 121,
+      "dia": 68,
+      "pulse": 80,
+      "irregular_flag": false,
+      "confidence": 0.62
+    },
+    "error": null
+  },
+  {
+    "filename": "img_039.jpg",
+    "conditions": "blur,dark,partial",
+    "label": {
+      "sys": 118,
+      "dia": 59,
+      "pulse": 78
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark visible top-left, START/STOP button bottom. Image blurry. Top row reads 138, middle 51 or 57, bottom partially visible.",
+      "is_bp_display": true,
+      "sys": 118,
+      "dia": null,
+      "pulse": null,
+      "irregular_flag": null,
+      "confidence": 0.5
+    },
+    "error": null
+  },
+  {
+    "filename": "img_042.jpg",
+    "conditions": "blur,dark",
+    "label": {
+      "sys": 144,
+      "dia": 62,
+      "pulse": 87
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "OMRON wordmark at top, START/STOP button at bottom, SYS/DIA labels visible left side. Image slightly blurred, capping confidence.",
+      "is_bp_display": true,
+      "sys": 144,
+      "dia": 62,
+      "pulse": 87,
+      "irregular_flag": false,
+      "confidence": 0.65
+    },
+    "error": null
+  }
+]

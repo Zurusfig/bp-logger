@@ -1,0 +1,202 @@
+[
+  {
+    "filename": "img_051.jpg",
+    "conditions": "not_bp",
+    "label": {
+      "sys": null,
+      "dia": null,
+      "pulse": null
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "This is a LINE chat screenshot, not a blood pressure monitor display. No SYS/DIA/PULSE labels or seven-segment digits present.",
+      "is_bp_display": false,
+      "sys": null,
+      "dia": null,
+      "pulse": null,
+      "irregular_flag": null,
+      "confidence": 0
+    },
+    "error": null
+  },
+  {
+    "filename": "img_052.jpg",
+    "conditions": "not_bp",
+    "label": {
+      "sys": null,
+      "dia": null,
+      "pulse": null
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "This is not a blood pressure monitor display. The image shows a young child at what appears to be a school playground.",
+      "is_bp_display": false,
+      "sys": null,
+      "dia": null,
+      "pulse": null,
+      "irregular_flag": null,
+      "confidence": 0
+    },
+    "error": null
+  },
+  {
+    "filename": "img_053.jpg",
+    "conditions": "not_bp",
+    "label": {
+      "sys": null,
+      "dia": null,
+      "pulse": null
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "Image is not a blood pressure monitor display; it shows people at a craft/activity table with colorful items.",
+      "is_bp_display": false,
+      "sys": null,
+      "dia": null,
+      "pulse": null,
+      "irregular_flag": null,
+      "confidence": 0
+    },
+    "error": null
+  },
+  {
+    "filename": "img_054.jpg",
+    "conditions": "not_bp",
+    "label": {
+      "sys": null,
+      "dia": null,
+      "pulse": null
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "Image is not a blood pressure monitor display; it shows a course outline document in Thai language.",
+      "is_bp_display": false,
+      "sys": null,
+      "dia": null,
+      "pulse": null,
+      "irregular_flag": null,
+      "confidence": 0
+    },
+    "error": null
+  },
+  {
+    "filename": "img_055.jpg",
+    "conditions": "not_bp",
+    "label": {
+      "sys": null,
+      "dia": null,
+      "pulse": null
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "This is not a blood pressure monitor. It shows a Thai payment receipt (ไทยช่วยไทย 60/40 scheme) with transaction details.",
+      "is_bp_display": false,
+      "sys": null,
+      "dia": null,
+      "pulse": null,
+      "irregular_flag": null,
+      "confidence": 0
+    },
+    "error": null
+  },
+  {
+    "filename": "img_056.jpg",
+    "conditions": "not_bp",
+    "label": {
+      "sys": null,
+      "dia": null,
+      "pulse": null
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "Image shows a LEGO Creator Red Panda set box, not a blood pressure monitor display.",
+      "is_bp_display": false,
+      "sys": null,
+      "dia": null,
+      "pulse": null,
+      "irregular_flag": null,
+      "confidence": 0
+    },
+    "error": null
+  },
+  {
+    "filename": "img_057.jpg",
+    "conditions": "not_bp",
+    "label": {
+      "sys": null,
+      "dia": null,
+      "pulse": null
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "Image is not a blood pressure monitor. It shows a LEGO keychain display stand in a retail store.",
+      "is_bp_display": false,
+      "sys": null,
+      "dia": null,
+      "pulse": null,
+      "irregular_flag": null,
+      "confidence": 0
+    },
+    "error": null
+  },
+  {
+    "filename": "img_058.jpg",
+    "conditions": "not_bp",
+    "label": {
+      "sys": null,
+      "dia": null,
+      "pulse": null
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "Image shows a child eating in a car, not a blood pressure monitor display.",
+      "is_bp_display": false,
+      "sys": null,
+      "dia": null,
+      "pulse": null,
+      "irregular_flag": null,
+      "confidence": 0
+    },
+    "error": null
+  },
+  {
+    "filename": "img_059.jpg",
+    "conditions": "not_bp",
+    "label": {
+      "sys": null,
+      "dia": null,
+      "pulse": null
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "This is not a blood pressure monitor display; it shows a Dymista nasal spray medication package from RAM Hospital.",
+      "is_bp_display": false,
+      "sys": null,
+      "dia": null,
+      "pulse": null,
+      "irregular_flag": null,
+      "confidence": 0
+    },
+    "error": null
+  },
+  {
+    "filename": "img_060.jpg",
+    "conditions": "not_bp",
+    "label": {
+      "sys": null,
+      "dia": null,
+      "pulse": null
+    },
+    "pred": {
+      "orientation_deg": 0,
+      "observations": "This is a Thai waffle restaurant signature menu board, not a blood pressure monitor display.",
+      "is_bp_display": false,
+      "sys": null,
+      "dia": null,
+      "pulse": null,
+      "irregular_flag": null,
+      "confidence": 0
+    },
+    "error": null
+  }
+]

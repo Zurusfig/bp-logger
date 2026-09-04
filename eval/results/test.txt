@@ -1,0 +1,36 @@
+....................
+
+split: test   images: 20   fields: 60
+
+  CORRECT    50   83.3%
+  WRONG       1   1.7%   <- real errors
+  ABSTAIN     9   15.0%   <- safe, needs review
+
+  precision (correct of answered)  98.0%
+
+by condition        correct  wrong  abstain
+  blur             27      1        8    75.0%
+  clean             6      0        0    100.0%
+  colorcast        11      0        1    91.7%
+  dark             18      0        6    75.0%
+  glare            22      1        4    81.5%
+  partial           8      0        4    66.7%
+  rotated           8      0        1    88.9%
+  tilted            3      0        0    100.0%
+
+CONFIDENT-WRONG  0   PASS
+review queue: 19/20 flagged, caught 1/1 images containing a wrong field
+
+WRONG:
+img_030.jpg  pulse  expected 68  got 146  conf=0.5  rot=0  [blur,glare]
+
+ABSTAIN:
+img_001.jpg  dia  expected 59  conf=0.6  [blur,colorcast,dark,glare,rotated]
+img_011.jpg  pulse  expected 56  conf=0.55  [blur,dark]
+img_015.jpg  pulse  expected 67  conf=0.5  [blur,dark]
+img_024.jpg  dia  expected 64  conf=0.5  [blur,glare,partial]
+img_024.jpg  pulse  expected 87  conf=0.5  [blur,glare,partial]
+img_029.jpg  pulse  expected 55  conf=0.7  [dark]
+img_030.jpg  dia  expected 57  conf=0.5  [blur,glare]
+img_039.jpg  dia  expected 59  conf=0.5  [blur,dark,partial]
+img_039.jpg  pulse  expected 78  conf=0.5  [blur,dark,partial]

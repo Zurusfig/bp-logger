@@ -1,0 +1,61 @@
+filename,split,sys,dia,pulse,irregular,rotation,conditions,note
+img_001.jpg,test,100,59,80,0,90,"blur,colorcast,dark,glare,rotated",glare covers sys
+img_002.jpg,dev,111,55,64,1,0,tilted,
+img_003.jpg,test,130,71,59,0,0,clean,
+img_004.jpg,test,154,78,89,1,0,colorcast,
+img_005.jpg,test,143,58,87,1,0,glare,
+img_006.jpg,dev,124,79,84,0,0,glare,glare over sys
+img_007.jpg,dev,129,68,88,1,0,clean,
+img_008.jpg,dev,120,56,73,1,0,"blur,tilted",
+img_009.jpg,dev,122,70,70,1,0,dark,
+img_010.jpg,dev,112,70,70,1,270,"dark,rotated",
+img_011.jpg,test,129,62,56,0,0,"blur,dark",pulse row barely legible
+img_012.jpg,dev,151,63,58,1,0,"blur,dark",pulse digits very faint
+img_013.jpg,dev,155,62,67,0,0,"blur,partial",left edge of display cut off
+img_014.jpg,dev,153,67,79,1,0,blur,pulse row faint
+img_015.jpg,test,125,65,67,1,0,"blur,dark",pulse barely readable
+img_016.jpg,test,113,66,68,1,0,"blur,partial",sys and dia labels cut off at left
+img_017.jpg,dev,136,59,70,1,90,rotated,
+img_018.jpg,dev,107,61,80,0,0,"blur,tilted",
+img_019.jpg,dev,109,74,70,1,0,"blur,colorcast,dark,glare,partial",glare covers dia and left edge of display cut off
+img_020.jpg,test,148,65,84,1,0,"blur,colorcast,dark,glare",glare over right of display
+img_021.jpg,test,122,64,88,1,0,"blur,glare",glare right of dia and pulse
+img_022.jpg,dev,100,62,72,0,0,"blur,glare",glare right of dia and pulse
+img_023.jpg,test,103,68,60,1,0,"blur,glare",glare right of display
+img_024.jpg,test,152,64,87,1,0,"blur,glare,partial",glare covers dia and pulse
+img_025.jpg,test,103,70,68,0,270,rotated,
+img_026.jpg,dev,145,72,74,1,0,"blur,glare",glare covers sys last digit
+img_027.jpg,dev,146,75,69,1,0,"blur,glare",glare covers sys and dia right digits
+img_028.jpg,test,123,70,62,0,0,"glare,tilted",
+img_029.jpg,test,110,74,55,0,0,dark,pulse digits faint
+img_030.jpg,test,105,57,68,1,0,"blur,glare",glare covers dia and pulse
+img_031.jpg,test,103,68,79,1,270,"blur,partial,rotated",top of display cut off
+img_032.jpg,test,125,68,73,1,0,clean,
+img_033.jpg,dev,131,75,87,0,0,"blur,glare",glare right of display
+img_034.jpg,test,121,68,80,1,0,"colorcast,dark,glare",glare over right of display
+img_035.jpg,dev,145,75,67,0,0,"colorcast,dark,glare",glare covers dia last digit
+img_036.jpg,dev,157,76,55,1,0,"blur,partial",display cropped at left and right and pulse faint
+img_037.jpg,dev,157,78,63,1,0,"blur,colorcast,glare",glare covers dia last digit
+img_038.jpg,dev,119,59,71,0,0,colorcast,pulse row faint
+img_039.jpg,test,118,59,78,1,0,"blur,dark,partial",left edge of display cut off
+img_040.jpg,dev,123,68,57,1,0,"blur,dark",digits low contrast
+img_041.jpg,dev,139,71,64,1,0,"blur,dark",pulse row faint
+img_042.jpg,test,144,62,87,1,0,"blur,dark",pulse row faint
+img_043.jpg,dev,110,61,56,1,0,"blur,dark",pulse label obscured
+img_044.jpg,dev,152,69,75,1,0,"blur,dark,partial",left edge cut off and pulse nearly unreadable
+img_045.jpg,dev,105,68,88,0,0,clean,
+img_046.jpg,synthetic,,65,81,1,0,"synthetic,partial","sys obscured, from img_007"
+img_047.jpg,synthetic,128,,82,0,0,"synthetic,partial","dia obscured, from img_045"
+img_048.jpg,synthetic,110,55,,0,0,"synthetic,partial","pulse obscured, from img_006"
+img_049.jpg,synthetic,,,83,,0,"synthetic,partial","sys and dia obscured, irregular icon also covered, from img_009"
+img_050.jpg,synthetic,,,,,0,"synthetic,partial","all values obscured, from img_038"
+img_051.jpg,negative,,,,,0,not_bp,LINE chat screenshot
+img_052.jpg,negative,,,,,0,not_bp,child portrait
+img_053.jpg,negative,,,,,0,not_bp,screenshot of people
+img_054.jpg,negative,,,,,0,not_bp,"screenshot, numeric table"
+img_055.jpg,negative,,,,,0,not_bp,"payment receipt, 3 numbers"
+img_056.jpg,negative,,,,,0,not_bp,toy box in store
+img_057.jpg,negative,,,,,0,not_bp,"store shelf, price tags"
+img_058.jpg,negative,,,,,0,not_bp,child in car
+img_059.jpg,negative,,,,,0,not_bp,"medicine box, label numbers"
+img_060.jpg,negative,,,,,0,not_bp,"menu board, 3-digit prices"

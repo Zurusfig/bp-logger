@@ -1,0 +1,8 @@
+............................................................
+
+mode: stage 1 + stage 2 triage
+
+BP photos passed        50/50  100.0%  PASS
+non-BP photos blocked   10/10  100.0%  (savings, not a gate)
+
+estimated cost avoided on non-BP images: 100.0% of them never reach the full read
