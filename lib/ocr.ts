@@ -7,7 +7,7 @@ const client = new Anthropic();
 export const OCR_MODEL = "claude-sonnet-4-6";
 
 /** Below this confidence a reading goes to the review queue instead of saving clean. */
-export const REVIEW_THRESHOLD = 0.9;
+export const REVIEW_THRESHOLD = 0.95;
 
 export type Reading = {
   orientation_deg: 0 | 90 | 180 | 270;
@@ -82,6 +82,7 @@ async function callOnce(b64: string, mediaType: string): Promise<string> {
   const res = await client.messages.create({
     model: OCR_MODEL,
     max_tokens: 1000,
+    temperature: 0,
     messages: [
       {
         role: "user",
