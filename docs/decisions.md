@@ -3,6 +3,9 @@
 Why the system works the way it does. Each entry points at the code, where the same
 reasoning is usually written in a comment next to the thing it explains.
 
+A `> Superseded` note under a heading means the decision no longer holds. The original
+reasoning is kept below it, and the code that implemented it is at tag `v1.0`.
+
 ## Reading the photo
 
 ### The model's orientation report is a trigger, never an answer
@@ -60,6 +63,24 @@ those two things.
 There's no structured-output enforcement on the API call. The contract is prompt-only, which
 is why `extractJson` walks the reply looking for the first balanced object.
 
+### The review threshold comes from production corrections
+
+`lib/ocr.ts`
+
+0.95 was set from one eval run, and on the strength of img_028, which turned out to be a
+label of mine that was wrong. In production it flagged 45 of 53 readings, so almost every
+reading needed a human.
+
+53 September readings with LIFF confirmations give a better answer. Every correction sat at
+0.60 or below. Nothing at 0.65 or above was ever corrected, across 21 readings. The eval sets
+agree: the highest-confidence wrong field anywhere is 0.6.
+
+Set to 0.75. It keeps two buckets of margin above the highest known wrong read and brings
+flagging from 85% to 62%. The floor is about 28%, because 15 of 53 readings genuinely needed
+a fix.
+
+Revisit monthly against fresh corrections. Never raise it on one run of twenty images again.
+
 ## Deciding what to read at all
 
 ### Colour and aspect-ratio filtering were measured, then dropped
@@ -105,6 +126,10 @@ filtering, so it goes straight to the full pipeline.
 The counter lives in Postgres and the RPC that increments it swallows its own errors and
 returns 0. Accounting failure shouldn't block a reading, and the cap failing open is the
 cheaper mistake.
+
+The LINE message budget is the same idea applied to a different meter, with one difference:
+that one fails **closed**. An API overrun costs a fraction of a cent; a message overrun
+silently disables every outgoing message for the rest of the month.
 
 ## Storing it
 
@@ -180,7 +205,16 @@ Confirmations, requests for missing digits and correction receipts all go to the
 private chat with the account. A 403 back from LINE means that person never added the account
 as a friend, so they get marked unreachable instead of retried forever.
 
+Reconsidered 2026-09. Reply messages are free where pushes are metered, so replying to the
+photo in the group would make every confirmation cost nothing. Rejected anyway: it notifies
+13 people per photo, and the group is where the family actually talks. This rule costs real
+quota and is worth it.
+
 ### Everyone else in the household hears about it too
+
+> **Superseded 2026-09** by "The message budget decides who hears about a reading".
+> One push per member per reading, times 13 members, exhausted the 300/month cap in about
+> six days. See `docs/incidents.md`. Original behaviour is at tag `v1.0`.
 
 `lib/worker.ts:180`
 
@@ -195,6 +229,9 @@ The pending-fill record is keyed to the sender's user ID, so only the sender's r
 it in. Everyone else gets the edit link.
 
 ### The sender's push failing doesn't cancel the fan-out
+
+> **Superseded 2026-09**. There is no fan-out left to protect. The sender's push is now the
+> only one on the reading path, and its failure is recorded, not rethrown.
 
 `lib/worker.ts:258`
 
@@ -215,6 +252,70 @@ should create a reading.
 
 The reminder says a slot hasn't been logged today. It never mentions values, risk or
 outcomes. It's the same shape whether one slot or three are due.
+
+Disabled 2026-09 via `REMINDERS_ENABLED=false`. The family didn't act on them, and each one
+cost one message per recipient. Missed slots appear in the 22:00 summary instead. The code
+stays in place so they can be switched back on if the habit changes.
+
+### The message budget decides who hears about a reading
+
+`lib/quota.ts`, `lib/worker.ts`
+
+The Free plan allows 300 sends a month. Pushes are counted per recipient, so a push to 13
+people is 13 messages. Replies are not counted at all.
+
+Who gets a push:
+
+- the sender, confirming the reading or asking for a missing number
+- the admin, for problem reads only, plus a 22:00 summary
+- nobody else. Everyone else uses the LIFF app, which is what they already do.
+
+About 202 of 300 in a normal month. The household fan-out was 690 and did not fit.
+
+### When the quota runs low, reminders go first
+
+`lib/quota.ts`
+
+Drop order, cheapest loss first: reminders, then the admin's instant problem pushes (the
+22:00 summary still carries the count), then the summary, and last the sender's messages.
+The sender is last because only the sender can fix a bad read quickly.
+
+Tiers on remaining quota: 60 stops reminders, 40 stops admin pushes, 15 leaves sender
+messages only, 0 means LIFF alone.
+
+### Reply first in a 1:1 chat, push only as fallback
+
+`lib/line.ts`
+
+A reply token arrives with every inbound event, costs nothing, expires in about 60 seconds,
+and can only answer the chat the message came from. Text follow-ups in the 1:1 chat are a
+fast database write, so a reply almost always makes the window.
+
+Group photos cannot use it, because the reply would land in the group. Those stay push.
+If the token has expired or the reply fails, fall back to push.
+
+### The quota is counted locally, not asked for on every send
+
+`lib/quota.ts`
+
+Asking LINE before every send costs two extra API calls on the photo path, which is the path
+already racing a 60 second reply window. So a `push_log` row per month is incremented on
+every successful send, the 22:00 cron reconciles it against LINE's real consumption once a
+day, and a 429 sets `exhausted` until the next month.
+
+The local count can drift, for example when LINE does not count a push to someone who blocked
+the account. The nightly sync corrects it, and the reserve absorbs the drift in between.
+
+### Alerts never go over LINE
+
+`lib/alert.ts`
+
+The 2026-09 outage was the messaging channel itself failing. An alert sent over that channel
+would have failed with it. Alerts go to a Discord webhook: no monthly cap, and it is on the
+admin's phone.
+
+Alert on: a quota tier being crossed, any push error other than 403 or 429, and any
+`worker failed` or `event failed`.
 
 ## Platform
 
@@ -246,16 +347,21 @@ session lookup can't tell which household they belong to, and they're locked out
 
 So any message in an allowed group enrols the sender, and so does a `memberJoined` event.
 
-### Two cron entries, one endpoint, no shared state
+### One cron entry, and it reports rather than reminds
 
-`app/api/cron/reminders/route.ts:31`, `app/api/cron/reminders/route.ts:79`
+> **Replaces "Two cron entries, one endpoint, no shared state" (2026-09).**
+> The 09:00 entry is gone with the reminders. Original behaviour is at tag `v1.0`.
 
-Both cron entries hit the same route. It doesn't know which one woke it. It works out from
-the data what's due right now, which makes repeated or overlapping runs harmless.
+`app/api/cron/reminders/route.ts`
 
-Reminders are recorded before the push, not after. A slot already claimed by an earlier run
-hits a primary key conflict and drops out quietly. Only newly recorded slots get mentioned in
-the message.
+The 22:00 entry survives because the daily summary needs it: how many readings were logged,
+how many were flagged, which slots are missing. That is one message a day to the admin
+instead of one per member per missed slot.
+
+The route still works out from the data what is due, so repeated or overlapping runs stay
+harmless. Reminder sends are recorded before the push, which means a send blocked by the
+quota guard still consumes its claim. Acceptable while reminders are off; revisit if they
+come back.
 
 ### The Supabase client is built lazily
 
