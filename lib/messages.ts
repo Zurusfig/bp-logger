@@ -110,15 +110,6 @@ function nameOrNeutral(senderName?: string | null): string {
   return senderName?.trim() || NEUTRAL_SENDER;
 }
 
-/** Household fan-out: someone else's reading was read cleanly and confidently. */
-export function msgSavedByOther(v: Vals, readingId: string, senderName?: string | null): string {
-  return withLink(
-    [`${nameOrNeutral(senderName)} บันทึกความดันแล้ว`, valueLine(v)],
-    readingId,
-    "แก้ไข"
-  );
-}
-
 /** Admin push: someone else's reading saved, but flagged for review. */
 export function msgSavedUnsureByOther(
   v: Vals,
@@ -127,19 +118,6 @@ export function msgSavedUnsureByOther(
 ): string {
   return withLink(
     [`${nameOrNeutral(senderName)} บันทึกความดันแล้ว รอการตรวจสอบ`, valueLine(v)],
-    readingId,
-    "แก้ไข"
-  );
-}
-
-/** Household fan-out: someone else typed in a reading with no photo attached. */
-export function msgTypedEntryByOther(
-  v: Vals,
-  readingId: string,
-  senderName?: string | null
-): string {
-  return withLink(
-    [`${nameOrNeutral(senderName)} บันทึกความดันแล้ว (พิมพ์เอง)`, valueLine(v)],
     readingId,
     "แก้ไข"
   );
@@ -160,19 +138,6 @@ export function msgIncompleteByOther(
   const values = valueLine(v);
   if (values) lines.push(values);
   return withLink(lines, readingId, "แก้ไข");
-}
-
-/** Household fan-out: someone else's previously incomplete reading now has all values. */
-export function msgCompletedByOther(
-  v: Vals,
-  readingId: string,
-  senderName?: string | null
-): string {
-  return withLink(
-    [`${nameOrNeutral(senderName)} บันทึกความดันครบแล้ว`, valueLine(v)],
-    readingId,
-    "แก้ไข"
-  );
 }
 
 /** Wrong number of values typed. */

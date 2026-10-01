@@ -59,6 +59,9 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 - The household fan-out. A saved, typed or completed reading now pushes only to the
   sender; everyone else uses the LIFF app (docs/decisions.md, "The message budget
   decides who hears about a reading").
+- `msgSavedByOther`, `msgTypedEntryByOther` and `msgCompletedByOther`, the household
+  fan-out messages with no caller left. The unsure and incomplete ones are kept for
+  the admin push.
 - The 09:00 cron entry (docs/decisions.md, "One cron entry, and it reports rather
   than reminds").
 
