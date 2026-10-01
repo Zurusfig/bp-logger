@@ -44,7 +44,7 @@ doctor's table with nothing marking it as suspect.
 
 This used to be measured against constants that only existed in the harness. It flagged rows
 at confidence below 0.75 and called a wrong answer confident at 0.8 or above. Production
-flags at `REVIEW_THRESHOLD`, which is 0.95, and also flags any row with a null field or a
+flags at `REVIEW_THRESHOLD`, which was 0.95 at the time, and also flags any row with a null field or a
 failed validation check.
 
 Those numbers being different made the harness output misleading. Because 0.75 is lower than
@@ -163,7 +163,9 @@ been an actual confident-wrong** — a wrong field that production would have sa
 flagging. Every wrong field observed sat at 0.7 confidence or below, comfortably inside the
 review queue regardless of where the threshold sits.
 
-### Why `REVIEW_THRESHOLD` is 0.95 anyway
+### Why `REVIEW_THRESHOLD` was set to 0.95
+
+> **Superseded 2026-10** by the production check below. The threshold is now 0.75.
 
 Not because of img_028. Rotated images that agree across candidates get their confidence
 capped at exactly 0.9 (`lib/ocr.ts:194`). The old threshold, also 0.9, compared with a strict
@@ -174,7 +176,7 @@ line and never get flagged. That's a real gap, independent of any single mislabe
 |---|---|---|
 | 0.90 | 14 of 20 | 0 |
 | 0.93 | 18-19 of 20 | 0 |
-| 0.95 (current) | 18-19 of 20 | 0 |
+| 0.95 (until 2026-10) | 18-19 of 20 | 0 |
 
 0.90 already catches every wrong field in this set — the jump at 0.93 is almost entirely those
 capped-at-0.9 rotated images crossing the line, not anything closing a real miss. 0.95 is the
