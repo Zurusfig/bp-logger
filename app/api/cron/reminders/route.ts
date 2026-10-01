@@ -1,4 +1,5 @@
 import { isAllowedGroup } from "@/lib/groups";
+import { alert } from "@/lib/alert";
 import {
   allSettings,
   dayCounts,
@@ -9,7 +10,13 @@ import {
   recordReminders,
   type HouseholdSettings,
 } from "@/lib/db";
-import { pushMessage, PushForbidden } from "@/lib/line";
+import {
+  getQuotaConsumption,
+  getQuotaLimit,
+  pushMessage,
+  PushForbidden,
+} from "@/lib/line";
+import { MONTHLY_BUDGET, reconcile, type ReconcileResult } from "@/lib/quota";
 import { msgDailySummary, msgMissedEntry } from "@/lib/messages";
 import { DEFAULT_SLOTS, localParts, minutes, normalise } from "@/lib/slot";
 
@@ -31,6 +38,8 @@ type HouseholdResult = {
   sent: number;
   failed: number;
 };
+
+type QuotaResult = ReconcileResult | { skipped: "month_end" | "error" };
 
 type SummaryResult =
   | { skipped: "no_admin" | "already_sent" }
@@ -57,18 +66,58 @@ export async function GET(req: Request) {
   // var can't quietly start spending quota again.
   const remindersOn = process.env.REMINDERS_ENABLED === "true";
 
-  const settings = (await allSettings()).filter((s) => isAllowedGroup(s.group_id));
-  const households = await Promise.all(
-    settings.map(async (s) => ({
-      group_id: s.group_id,
-      summary: await summariseHousehold(s),
-      reminders: remindersOn ? await remindHousehold(s) : ("disabled" as const),
-    }))
-  );
+  // A crash here means no summary tonight, which nobody would otherwise notice.
+  try {
+    // Before the summaries, so they claim against the corrected count.
+    const quota = await syncQuota();
 
-  const run = { checked: households.length, households };
-  console.log("cron run", JSON.stringify(run));
-  return Response.json(run);
+    const settings = (await allSettings()).filter((s) => isAllowedGroup(s.group_id));
+    const households = await Promise.all(
+      settings.map(async (s) => ({
+        group_id: s.group_id,
+        summary: await summariseHousehold(s),
+        reminders: remindersOn ? await remindHousehold(s) : ("disabled" as const),
+      }))
+    );
+
+    const run = { quota, checked: households.length, households };
+    console.log("cron run", JSON.stringify(run));
+    return Response.json(run);
+  } catch (err) {
+    console.error("cron failed", String(err));
+    await alert("error", `cron failed: ${String(err)}`);
+    return Response.json({ error: "cron failed" }, { status: 500 });
+  }
+}
+
+/**
+ * Nightly sync of push_log against LINE's own count (docs/decisions.md, "The
+ * quota is counted locally, not asked for on every send"). Never throws.
+ *
+ * Skipped on the last UTC day of the month. This runs at 15:00 UTC, which is
+ * already the next day in Japan, and which timezone LINE resets the quota in is
+ * unconfirmed (docs/incidents.md). If it's Japan's, the last day's sync would
+ * write next month's near-zero count into this month's row and reopen the
+ * budget for the hours left.
+ */
+async function syncQuota(): Promise<QuotaResult> {
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  if (tomorrow.getUTCMonth() !== now.getUTCMonth()) return { skipped: "month_end" };
+
+  try {
+    const [used, limit] = await Promise.all([getQuotaConsumption(), getQuotaLimit()]);
+    if (limit !== null && limit !== MONTHLY_BUDGET) {
+      await alert(
+        "warning",
+        `LINE's monthly limit is ${limit} but MONTHLY_BUDGET is ${MONTHLY_BUDGET} (lib/quota.ts)`
+      );
+    }
+    return (await reconcile(used)) ?? { skipped: "error" };
+  } catch (err) {
+    await alert("error", `quota sync failed: ${String(err)}`);
+    return { skipped: "error" };
+  }
 }
 
 /**

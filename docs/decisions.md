@@ -296,8 +296,13 @@ A reply token arrives with every inbound event, costs nothing, expires in about 
 and can only answer the chat the message came from. Text follow-ups in the 1:1 chat are a
 fast database write, so a reply almost always makes the window.
 
-Group photos cannot use it, because the reply would land in the group. Those stay push.
-If the token has expired or the reply fails, fall back to push.
+Group photos cannot use it, because the reply would land in the group. Those stay push, and
+so do confirmations for numbers typed in the group. A photo sent in the 1:1 chat tries a
+reply too; a slow OCR read can miss the window, and then it pushes.
+
+If the token has expired or the reply fails, fall back to push. A failed reply doesn't alert,
+since an expired token is expected. Admin pushes and the summary are never replies: they go
+to someone other than whoever sent the event.
 
 ### The quota is counted locally, not asked for on every send
 
@@ -311,6 +316,16 @@ day, and a 429 sets `exhausted` until the next month.
 The local count can drift, for example when LINE does not count a push to someone who blocked
 the account. The nightly sync corrects it, and the reserve absorbs the drift in between.
 
+The sync overwrites `used` with LINE's `totalUsage` in either direction, and leaves
+`exhausted` alone. It runs before the summary so the summary claims against the corrected
+count. Raising the count can skip past a tier floor without any claim landing on it, so the
+sync checks crossings itself. A drift of 10 or more alerts, and so does LINE reporting a
+monthly limit other than `MONTHLY_BUDGET`.
+
+It skips the last UTC day of each month. The cron fires at 15:00 UTC, already the next day
+in Japan, and LINE's reset timezone is unconfirmed. If it resets on Japan time, that night's
+sync would write the new month's count into the old month's row.
+
 ### Alerts never go over LINE
 
 `lib/alert.ts`
@@ -319,8 +334,13 @@ The 2026-09 outage was the messaging channel itself failing. An alert sent over 
 would have failed with it. Alerts go to a Discord webhook: no monthly cap, and it is on the
 admin's phone.
 
-Alert on: a quota tier being crossed, any push error other than 403 or 429, and any
-`worker failed` or `event failed`.
+Alert on: a quota tier being crossed, any push error other than 403, any `worker failed` or
+`event failed`, and the cron failing.
+
+A tier crossing alerts on the one claim that lands exactly on that tier's floor, so each
+alerts once a month. A 429 alerts once too, from whichever request first sets `exhausted`.
+It is kept, even with tier alerts, because a 429 means LINE ran out before the local count
+did: the count has drifted, and no tier alert would have said so.
 
 ## Platform
 

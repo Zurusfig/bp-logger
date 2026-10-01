@@ -2,6 +2,7 @@ import {
   getMessageContent,
   getGroupMemberName,
   pushMessage,
+  replyOrPush,
   PushForbidden,
   type LineEvent,
 } from "./line";
@@ -9,6 +10,7 @@ import { couldBeBpPhoto, isBpDisplay, DAILY_CALL_CAP } from "./prefilter";
 import { readDisplayCorrected, validate, needsReview, type Reading } from "./ocr";
 import { deriveSlot } from "./slot";
 import { isAllowedGroup as allowedGroup } from "./groups";
+import { alert } from "./alert";
 import {
   ensureMember,
   memberGroup,
@@ -47,8 +49,10 @@ export async function processEvents(events: LineEvent[]): Promise<void> {
   await Promise.allSettled(events.map((e) => handleEvent(e).catch(logErr(e))));
 }
 
-const logErr = (e: LineEvent) => (err: unknown) =>
+const logErr = (e: LineEvent) => async (err: unknown) => {
   console.error("event failed", { type: e.type, id: e.message?.id, err: String(err) });
+  await alert("error", `event failed (${e.type} ${e.message?.id ?? ""}): ${String(err)}`);
+};
 
 async function handleEvent(e: LineEvent): Promise<void> {
   // Enrolment happens on ANY activity in the allowed group, not just posting a
@@ -162,7 +166,10 @@ async function handleImage(e: LineEvent): Promise<void> {
     console.error("image upload failed", { id, err: String(err) });
   }
 
-  await notify(groupId, userId, id, cleaned, needsReviewFlag);
+  // A photo sent in the 1:1 chat can be answered with a free reply. One posted
+  // in the group can't: the reply would land in the group.
+  const replyToken = isDirect ? e.replyToken : undefined;
+  await notify(groupId, userId, id, cleaned, needsReviewFlag, replyToken);
 }
 
 /**
@@ -213,7 +220,8 @@ async function notify(
   userId: string,
   readingId: string,
   r: Reading,
-  needsReviewFlag: boolean
+  needsReviewFlag: boolean,
+  replyToken?: string
 ): Promise<void> {
   const missing = FIELDS.filter((f) => r[f] === null);
   const vals = { sys: r.sys, dia: r.dia, pulse: r.pulse };
@@ -231,7 +239,7 @@ async function notify(
   if (missing.length > 0) await setPending(userId, readingId, [...missing]);
 
   try {
-    const result = await pushMessage(userId, text, "sender");
+    const result = await replyOrPush(replyToken, userId, text, "sender");
     if (!result.ok) console.warn("sender push failed", { userId, readingId, result });
   } catch (err) {
     if (err instanceof PushForbidden) {
@@ -363,14 +371,15 @@ async function handleDirectText(e: LineEvent): Promise<void> {
           userId
         );
         await clearPending(userId);
-        await pushMessage(
+        await replyOrPush(
+          e.replyToken,
           userId,
           msgUpdated({ sys: nums[0], dia: nums[1], pulse: nums[2] }),
           "sender"
         );
         return;
       }
-      await pushMessage(userId, msgWrongCount(missing), "sender");
+      await replyOrPush(e.replyToken, userId, msgWrongCount(missing), "sender");
       return;
     }
 
@@ -380,7 +389,7 @@ async function handleDirectText(e: LineEvent): Promise<void> {
     >;
     await completeReading(pending.reading_id, vals, userId);
     await clearPending(userId);
-    await pushMessage(userId, msgUpdated(vals), "sender");
+    await replyOrPush(e.replyToken, userId, msgUpdated(vals), "sender");
     return;
   }
 
@@ -394,7 +403,8 @@ async function handleDirectText(e: LineEvent): Promise<void> {
         { sys: nums[0], dia: nums[1], pulse: nums[2] },
         userId
       );
-      await pushMessage(
+      await replyOrPush(
+        e.replyToken,
         userId,
         msgUpdated({ sys: nums[0], dia: nums[1], pulse: nums[2] }),
         "sender"
@@ -410,10 +420,15 @@ async function handleDirectText(e: LineEvent): Promise<void> {
     const result = await insertTypedReading(groupId, userId, e.timestamp, vals);
 
     if (!result.ok) {
-      await pushMessage(userId, msgInvalidEntry(vals, result.issues), "sender");
+      await replyOrPush(
+        e.replyToken,
+        userId,
+        msgInvalidEntry(vals, result.issues),
+        "sender"
+      );
       return;
     }
-    await pushMessage(userId, msgTypedEntry(vals, result.id), "sender");
+    await replyOrPush(e.replyToken, userId, msgTypedEntry(vals, result.id), "sender");
     console.log("reading saved", { readingId: result.id, needsReview: false });
   }
 }
