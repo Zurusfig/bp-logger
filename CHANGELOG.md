@@ -36,6 +36,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
   message to the sender in a 1:1 chat, including photos sent there. Group photos and
   numbers typed in the group still push.
 
+- Daily Anthropic spend message on Discord from the 22:00 cron: today, this month and
+  the 7-day average, priced in `lib/spend.ts` from token counts every OCR and triage
+  call now records. Warns on a day over 3x the average. `anthropic_usage` table and
+  `record_anthropic_usage()` in `supabase/migrations/0005_anthropic_usage.sql`.
+
 ### Changed
 
 - `REVIEW_THRESHOLD` 0.95 to 0.75 (`lib/ocr.ts`). Set from 53 September production

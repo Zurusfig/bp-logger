@@ -17,6 +17,7 @@ import {
   PushForbidden,
 } from "@/lib/line";
 import { MONTHLY_BUDGET, reconcile, type ReconcileResult } from "@/lib/quota";
+import { reportSpend } from "@/lib/spend";
 import { msgDailySummary, msgMissedEntry } from "@/lib/messages";
 import { DEFAULT_SLOTS, localParts, minutes, normalise } from "@/lib/slot";
 
@@ -80,7 +81,11 @@ export async function GET(req: Request) {
       }))
     );
 
-    const run = { quota, checked: households.length, households };
+    // Daily Anthropic spend to Discord (docs/decisions.md, "Anthropic spend is
+    // counted locally"). Not deduplicated: a manual run posts one extra message.
+    const spend = await reportSpend();
+
+    const run = { quota, spend, checked: households.length, households };
     console.log("cron run", JSON.stringify(run));
     return Response.json(run);
   } catch (err) {

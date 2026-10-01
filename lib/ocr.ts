@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import sharp from "sharp";
 import { toBase64 } from "./image";
+import { recordUsage } from "./spend";
 
 const client = new Anthropic();
 
@@ -100,6 +101,7 @@ async function callOnce(b64: string, mediaType: string): Promise<string> {
       },
     ],
   });
+  await recordUsage(res.model, res.usage);
 
   const text = res.content
     .filter((c) => c.type === "text")
