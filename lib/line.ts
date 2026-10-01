@@ -94,8 +94,12 @@ export async function pushMessage(
   if (res.status === 403) throw new PushForbidden(await res.text());
 
   if (res.status === 429) {
-    await markExhausted();
-    await alert("warning", `LINE push quota exhausted (429): ${await res.text()}`);
+    // LINE ran out before the local count did, so the count has drifted. Worth
+    // knowing even though tier alerts exist, but once, not per request.
+    const body = await res.text();
+    if (await markExhausted()) {
+      await alert("warning", `LINE push quota exhausted (429): ${body}`);
+    }
     return { ok: false, reason: "error", status: 429 };
   }
 

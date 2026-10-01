@@ -23,6 +23,10 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 - Instant admin push for problem reads: a photo reading saved with `needs_review`
   goes to every admin other than the sender, at tier `admin`.
 - Admins are members with `members.is_admin` set, by hand in Supabase.
+- Discord alerts when a quota tier is crossed (60, 40, 15 and 0 sends left), on
+  `worker failed` and `event failed`, and when the cron route fails.
+- `supabase/migrations/0003_mark_exhausted_once.sql`: `mark_push_exhausted()` returns
+  whether this call set the flag.
 
 ### Changed
 
@@ -31,8 +35,8 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
   twenty images. See docs/decisions.md ("The review threshold comes from production
   corrections").
 - `lib/line.ts`: `pushMessage` now returns a typed `PushResult` instead of resolving
-  `void`. A 429 sets `push_log.exhausted` and alerts; any other non-ok, non-403
-  response alerts. 403 is unchanged — still throws `PushForbidden` for the caller to
+  `void`. A 429 sets `push_log.exhausted` and alerts once a month, not once per
+  request; any other non-ok, non-403 response alerts. 403 is unchanged — still throws `PushForbidden` for the caller to
   mark the recipient unreachable.
 - `pushMessage(userId, text, tier)` claims against the monthly budget before every
   send and returns `{ ok: false, reason: "quota" }` without calling LINE when the

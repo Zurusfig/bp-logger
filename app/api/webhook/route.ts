@@ -1,6 +1,7 @@
 import { waitUntil } from "@vercel/functions";
 import { verifySignature, type LineEvent } from "@/lib/line";
 import { processEvents } from "@/lib/worker";
+import { alert } from "@/lib/alert";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // OCR can make up to 4 calls on a rotated image
@@ -21,7 +22,10 @@ export async function POST(req: Request) {
   // NFR-1: LINE needs a fast 200 or it retries. waitUntil keeps the function alive
   // after the response is sent, so OCR runs without blocking the acknowledgement.
   waitUntil(
-    processEvents(events).catch((err) => console.error("worker failed", String(err)))
+    processEvents(events).catch(async (err) => {
+      console.error("worker failed", String(err));
+      await alert("error", `worker failed: ${String(err)}`);
+    })
   );
 
   return new Response(null, { status: 200 });

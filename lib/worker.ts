@@ -9,6 +9,7 @@ import { couldBeBpPhoto, isBpDisplay, DAILY_CALL_CAP } from "./prefilter";
 import { readDisplayCorrected, validate, needsReview, type Reading } from "./ocr";
 import { deriveSlot } from "./slot";
 import { isAllowedGroup as allowedGroup } from "./groups";
+import { alert } from "./alert";
 import {
   ensureMember,
   memberGroup,
@@ -47,8 +48,10 @@ export async function processEvents(events: LineEvent[]): Promise<void> {
   await Promise.allSettled(events.map((e) => handleEvent(e).catch(logErr(e))));
 }
 
-const logErr = (e: LineEvent) => (err: unknown) =>
+const logErr = (e: LineEvent) => async (err: unknown) => {
   console.error("event failed", { type: e.type, id: e.message?.id, err: String(err) });
+  await alert("error", `event failed (${e.type} ${e.message?.id ?? ""}): ${String(err)}`);
+};
 
 async function handleEvent(e: LineEvent): Promise<void> {
   // Enrolment happens on ANY activity in the allowed group, not just posting a

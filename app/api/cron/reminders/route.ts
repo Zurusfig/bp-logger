@@ -1,4 +1,5 @@
 import { isAllowedGroup } from "@/lib/groups";
+import { alert } from "@/lib/alert";
 import {
   allSettings,
   dayCounts,
@@ -57,18 +58,25 @@ export async function GET(req: Request) {
   // var can't quietly start spending quota again.
   const remindersOn = process.env.REMINDERS_ENABLED === "true";
 
-  const settings = (await allSettings()).filter((s) => isAllowedGroup(s.group_id));
-  const households = await Promise.all(
-    settings.map(async (s) => ({
-      group_id: s.group_id,
-      summary: await summariseHousehold(s),
-      reminders: remindersOn ? await remindHousehold(s) : ("disabled" as const),
-    }))
-  );
+  // A crash here means no summary tonight, which nobody would otherwise notice.
+  try {
+    const settings = (await allSettings()).filter((s) => isAllowedGroup(s.group_id));
+    const households = await Promise.all(
+      settings.map(async (s) => ({
+        group_id: s.group_id,
+        summary: await summariseHousehold(s),
+        reminders: remindersOn ? await remindHousehold(s) : ("disabled" as const),
+      }))
+    );
 
-  const run = { checked: households.length, households };
-  console.log("cron run", JSON.stringify(run));
-  return Response.json(run);
+    const run = { checked: households.length, households };
+    console.log("cron run", JSON.stringify(run));
+    return Response.json(run);
+  } catch (err) {
+    console.error("cron failed", String(err));
+    await alert("error", `cron failed: ${String(err)}`);
+    return Response.json({ error: "cron failed" }, { status: 500 });
+  }
 }
 
 /**

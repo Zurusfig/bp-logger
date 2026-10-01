@@ -319,8 +319,13 @@ The 2026-09 outage was the messaging channel itself failing. An alert sent over 
 would have failed with it. Alerts go to a Discord webhook: no monthly cap, and it is on the
 admin's phone.
 
-Alert on: a quota tier being crossed, any push error other than 403 or 429, and any
-`worker failed` or `event failed`.
+Alert on: a quota tier being crossed, any push error other than 403, any `worker failed` or
+`event failed`, and the cron failing.
+
+A tier crossing alerts on the one claim that lands exactly on that tier's floor, so each
+alerts once a month. A 429 alerts once too, from whichever request first sets `exhausted`.
+It is kept, even with tier alerts, because a 429 means LINE ran out before the local count
+did: the count has drifted, and no tier alert would have said so.
 
 ## Platform
 
