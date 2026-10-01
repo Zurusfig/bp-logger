@@ -26,16 +26,23 @@ type HouseholdResult = {
 };
 
 /**
- * Fired by two Vercel Hobby cron entries (09:00 and 22:00 Bangkok, see
- * vercel.json) that both hit this same endpoint. It doesn't know which one woke
- * it — it just works out from the data what's due right now, which is what
- * makes repeated or overlapping invocations harmless.
+ * Fired by one Vercel Hobby cron entry (22:00 Bangkok, see vercel.json). It
+ * doesn't rely on that — it works out from the data what's due right now,
+ * which is what makes repeated or overlapping invocations harmless.
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization");
   if (!secret || auth !== `Bearer ${secret}`) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // Off unless explicitly turned on (docs/decisions.md, "Reminders are a
+  // checklist, not a health warning"). Defaulting to off means a missing env
+  // var can't quietly start spending quota again.
+  if (process.env.REMINDERS_ENABLED !== "true") {
+    console.log("reminders run", JSON.stringify({ skipped: "disabled" }));
+    return Response.json({ skipped: "disabled" });
   }
 
   const settings = (await allSettings()).filter((s) => isAllowedGroup(s.group_id));
@@ -96,8 +103,9 @@ async function processHousehold(s: HouseholdSettings): Promise<HouseholdResult> 
   await Promise.allSettled(
     targets.map(async (m) => {
       try {
-        await pushMessage(m.user_id, text);
-        sent++;
+        const result = await pushMessage(m.user_id, text, "reminder");
+        if (result.ok) sent++;
+        else failed++;
       } catch (err) {
         failed++;
         if (err instanceof PushForbidden) {

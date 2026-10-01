@@ -13,7 +13,6 @@ import {
   ensureMember,
   memberGroup,
   markUnreachable,
-  groupMembers,
   hashImage,
   findByHash,
   insertReading,
@@ -31,18 +30,12 @@ import {
   msgPartial,
   msgSaved,
   msgSavedUnsure,
-  msgSavedByOther,
-  msgSavedUnsureByOther,
-  msgIncompleteByOther,
-  msgCompletedByOther,
   msgUnreadable,
   msgUpdated,
   msgWrongCount,
   msgTypedEntry,
-  msgTypedEntryByOther,
   msgInvalidEntry,
 } from "./messages";
-import type { CompleteResult } from "./db";
 
 const FIELDS = ["sys", "dia", "pulse"] as const;
 
@@ -139,7 +132,7 @@ async function handleImage(e: LineEvent): Promise<void> {
     : { ...reading, sys: null, dia: null, pulse: null };
 
   // Computed once here and reused by both insertReading and notify() below, so the
-  // row's stored needs_review and the fan-out's choice of message can never disagree.
+  // row's stored needs_review and the sender's choice of message can never disagree.
   const needsReviewFlag = needsReview(cleaned) || !ok;
 
   const postedAt = new Date(e.timestamp);
@@ -166,61 +159,16 @@ async function handleImage(e: LineEvent): Promise<void> {
     console.error("image upload failed", { id, err: String(err) });
   }
 
-  await notify(groupId, userId, id, cleaned, needsReviewFlag);
+  await notify(userId, id, cleaned, needsReviewFlag);
 }
 
 /**
- * Pushes the same reading to every other household member who wants to hear
- * about it (notify_ok AND notify_all). Runs concurrently and never throws — a
- * lookup failure, a build failure, or one member's push failing must never take
- * down the others or bubble up to the caller, since the reading is already saved
- * by the time this runs. Returns the number of members it targeted, and logs the
- * sent/failed split as one aggregate line rather than one line per recipient.
+ * The sender is the only person pushed about a reading (docs/decisions.md, "The
+ * message budget decides who hears about a reading"). Everyone else sees it in
+ * the LIFF app. The reading is already saved by the time this runs, so a failed
+ * push is recorded, not rethrown — pushMessage has already alerted if it matters.
  */
-async function notifyHousehold(
-  groupId: string,
-  senderId: string,
-  build: (senderName?: string | null) => string
-): Promise<number> {
-  try {
-    const members = await groupMembers(groupId);
-    const others = members.filter(
-      (m) => m.user_id !== senderId && m.notify_ok && m.notify_all
-    );
-    if (others.length === 0) {
-      console.log("household fanout: no reachable members", { groupId, senderId });
-      return 0;
-    }
-
-    const sender = members.find((m) => m.user_id === senderId);
-    const text = build(sender?.display_name);
-
-    let sent = 0;
-    let failed = 0;
-    await Promise.allSettled(
-      others.map(async (m) => {
-        try {
-          await pushMessage(m.user_id, text);
-          sent++;
-        } catch (err) {
-          failed++;
-          if (err instanceof PushForbidden) {
-            await markUnreachable(m.user_id);
-          }
-        }
-      })
-    );
-
-    console.log("household fanout", { groupId, senderId, targeted: others.length, sent, failed });
-    return others.length;
-  } catch (err) {
-    console.error("household fanout failed", { groupId, senderId, err: String(err) });
-    return 0;
-  }
-}
-
 async function notify(
-  groupId: string,
   userId: string,
   readingId: string,
   r: Reading,
@@ -229,8 +177,6 @@ async function notify(
   const missing = FIELDS.filter((f) => r[f] === null);
   const vals = { sys: r.sys, dia: r.dia, pulse: r.pulse };
 
-  // Sender message: purely a function of what's missing and how confident the
-  // read was. Independent of the fan-out decision below.
   let text: string;
   if (missing.length === FIELDS.length) {
     text = msgUnreadable(readingId);
@@ -243,37 +189,19 @@ async function notify(
   }
   if (missing.length > 0) await setPending(userId, readingId, [...missing]);
 
-  // Household fan-out: fires for every reading that was actually saved, since
-  // anyone in the household can open the app to check or complete it. Missing
-  // values take priority over needsReviewFlag for the message choice — a partial
-  // read is also stored needs_review=true, but the household needs to know it's
-  // incomplete specifically, not just "unsure", since only the sender's reply (or
-  // the edit link) can fill it in.
-  const fanOut = missing.length > 0
-    ? (name?: string | null) => msgIncompleteByOther(vals, readingId, name)
-    : needsReviewFlag
-      ? (name?: string | null) => msgSavedUnsureByOther(vals, readingId, name)
-      : (name?: string | null) => msgSavedByOther(vals, readingId, name);
-
-  // The sender's own push failing (e.g. they blocked the OA) must not skip
-  // notifying the rest of the household, so it's tracked and rethrown after —
-  // not before — the fan-out runs.
-  let senderErr: unknown = null;
   try {
-    await pushMessage(userId, text);
+    const result = await pushMessage(userId, text, "sender");
+    if (!result.ok) console.warn("sender push failed", { userId, readingId, result });
   } catch (err) {
     if (err instanceof PushForbidden) {
       await markUnreachable(userId);
       console.warn("push forbidden, marked unreachable", { userId });
     } else {
-      senderErr = err;
+      console.error("sender push failed", { userId, readingId, err: String(err) });
     }
   }
 
-  const targeted = await notifyHousehold(groupId, userId, fanOut);
-  console.log("reading saved", { readingId, needsReview: needsReviewFlag, targeted });
-
-  if (senderErr) throw senderErr;
+  console.log("reading saved", { readingId, needsReview: needsReviewFlag });
 }
 
 // -------------------------------------------------------------- typed entry
@@ -351,33 +279,11 @@ async function handleGroupText(e: LineEvent): Promise<void> {
   const result = await insertTypedReading(groupId, userId, e.timestamp, vals);
 
   if (!result.ok) {
-    await pushMessage(userId, msgInvalidEntry(vals, result.issues));
+    await pushMessage(userId, msgInvalidEntry(vals, result.issues), "sender");
     return;
   }
-  await pushMessage(userId, msgTypedEntry(vals, result.id));
-  const targeted = await notifyHousehold(groupId, userId, (name) =>
-    msgTypedEntryByOther(vals, result.id, name)
-  );
-  console.log("reading saved", { readingId: result.id, needsReview: false, targeted });
-}
-
-/**
- * Fans out to the household when a pending fill completes a reading, i.e. leaves
- * no field null. A fill that still leaves a field null (shouldn't happen given how
- * `missing` is derived, but checked here rather than assumed) stays sender-only.
- */
-async function announceCompletion(
-  userId: string,
-  readingId: string,
-  result: CompleteResult
-): Promise<void> {
-  if (!result.completed) return;
-  const groupId = await memberGroup(userId);
-  if (!groupId) return;
-  const targeted = await notifyHousehold(groupId, userId, (name) =>
-    msgCompletedByOther(result, readingId, name)
-  );
-  console.log("reading completed", { readingId, targeted });
+  await pushMessage(userId, msgTypedEntry(vals, result.id), "sender");
+  console.log("reading saved", { readingId: result.id, needsReview: false });
 }
 
 /** Typed numbers in a 1:1 chat: fills a pending read, or overwrites a recent one. */
@@ -398,7 +304,7 @@ async function handleDirectText(e: LineEvent): Promise<void> {
     if (nums.length !== missing.length) {
       // Three numbers when one was asked for is a full correction, not a mistake.
       if (nums.length === 3) {
-        const result = await completeReading(
+        await completeReading(
           pending.reading_id,
           { sys: nums[0], dia: nums[1], pulse: nums[2] },
           userId
@@ -406,12 +312,12 @@ async function handleDirectText(e: LineEvent): Promise<void> {
         await clearPending(userId);
         await pushMessage(
           userId,
-          msgUpdated({ sys: nums[0], dia: nums[1], pulse: nums[2] })
+          msgUpdated({ sys: nums[0], dia: nums[1], pulse: nums[2] }),
+          "sender"
         );
-        await announceCompletion(userId, pending.reading_id, result);
         return;
       }
-      await pushMessage(userId, msgWrongCount(missing));
+      await pushMessage(userId, msgWrongCount(missing), "sender");
       return;
     }
 
@@ -419,10 +325,9 @@ async function handleDirectText(e: LineEvent): Promise<void> {
       string,
       number
     >;
-    const result = await completeReading(pending.reading_id, vals, userId);
+    await completeReading(pending.reading_id, vals, userId);
     await clearPending(userId);
-    await pushMessage(userId, msgUpdated(vals));
-    await announceCompletion(userId, pending.reading_id, result);
+    await pushMessage(userId, msgUpdated(vals), "sender");
     return;
   }
 
@@ -436,7 +341,11 @@ async function handleDirectText(e: LineEvent): Promise<void> {
         { sys: nums[0], dia: nums[1], pulse: nums[2] },
         userId
       );
-      await pushMessage(userId, msgUpdated({ sys: nums[0], dia: nums[1], pulse: nums[2] }));
+      await pushMessage(
+        userId,
+        msgUpdated({ sys: nums[0], dia: nums[1], pulse: nums[2] }),
+        "sender"
+      );
       return;
     }
 
@@ -448,13 +357,10 @@ async function handleDirectText(e: LineEvent): Promise<void> {
     const result = await insertTypedReading(groupId, userId, e.timestamp, vals);
 
     if (!result.ok) {
-      await pushMessage(userId, msgInvalidEntry(vals, result.issues));
+      await pushMessage(userId, msgInvalidEntry(vals, result.issues), "sender");
       return;
     }
-    await pushMessage(userId, msgTypedEntry(vals, result.id));
-    const targeted = await notifyHousehold(groupId, userId, (name) =>
-      msgTypedEntryByOther(vals, result.id, name)
-    );
-    console.log("reading saved", { readingId: result.id, needsReview: false, targeted });
+    await pushMessage(userId, msgTypedEntry(vals, result.id), "sender");
+    console.log("reading saved", { readingId: result.id, needsReview: false });
   }
 }

@@ -181,6 +181,24 @@ capped-at-0.9 rotated images crossing the line, not anything closing a real miss
 cautious choice, not the necessary one: one run of twenty images isn't enough to lean on a
 looser threshold once there's headroom to spare.
 
+## Production check, 2026-09
+
+53 readings, each one either confirmed or corrected in the LIFF app. Confidence against
+outcome:
+
+| Confidence | n  | confirmed correct | corrected |
+|------------|----|-------------------|-----------|
+| 0.40-0.60  | 24 | 9                 | 15        |
+| 0.65-0.92  | 21 | 18                | 0         |
+| 0.95+      |  8 | not reviewed      | 0 edits   |
+
+Every correction is at 0.60 or below. This is 53 real readings against the 20 held-out images
+that 0.95 was chosen on, so it supersedes that choice: threshold lowered to 0.75.
+
+Two things the table does not settle. The 0.95+ rows were never flagged, so nobody checked
+them; "0 edits" is weak evidence. And an edit can mean filling in a null rather than fixing a
+wrong number, so 15 is an upper bound on wrong reads.
+
 ### The caveat that comes with it
 
 20-25 images per split is a small set, and runs aren't deterministic even at pinned

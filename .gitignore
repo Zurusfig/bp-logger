@@ -44,3 +44,7 @@ next-env.d.ts
 # project
 .env.local
 eval/samples/
+DEFENSE.md
+docs/article-brief.md
+docs/article-draft.md
+supabase/*.csv
