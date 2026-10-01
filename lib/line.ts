@@ -107,6 +107,48 @@ export async function pushMessage(
   return { ok: false, reason: "error", status: res.status };
 }
 
+/**
+ * Answers in the 1:1 chat an event came from with a free reply, falling back to
+ * a push (docs/decisions.md, "Reply first in a 1:1 chat, push only as fallback").
+ * Never pass a token from a group event: the reply would land in the group.
+ *
+ * A reply token expires after about 60 seconds and can be used once. A missing
+ * or expired token, or any failed reply, falls through to pushMessage, so the
+ * caller gets the same PushResult and PushForbidden contract either way. A
+ * failed reply doesn't alert: an expired token is expected on a slow OCR read.
+ */
+export async function replyOrPush(
+  replyToken: string | undefined,
+  userId: string,
+  text: string,
+  tier: Tier
+): Promise<PushResult> {
+  if (replyToken) {
+    if (process.env.PUSH_DRY_RUN === "true") {
+      console.log("reply (dry run)", { userId, text });
+      return { ok: true };
+    }
+
+    try {
+      const res = await fetch(`${API}/message/reply`, {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ replyToken, messages: [{ type: "text", text }] }),
+      });
+      if (res.ok) return { ok: true };
+      console.warn("reply failed, pushing instead", {
+        userId,
+        status: res.status,
+        body: await res.text(),
+      });
+    } catch (err) {
+      console.warn("reply failed, pushing instead", { userId, err: String(err) });
+    }
+  }
+
+  return pushMessage(userId, text, tier);
+}
+
 /** Messages LINE has counted against this month's quota. Replies are not counted. */
 export async function getQuotaConsumption(): Promise<number> {
   const res = await fetch(`${API}/message/quota/consumption`, { headers: authHeaders() });

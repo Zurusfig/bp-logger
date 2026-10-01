@@ -31,6 +31,10 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
   before sending the summary, alerting on tier crossings, drift of 10 or more, and a
   LINE limit that differs from `MONTHLY_BUDGET`. Skipped on the last UTC day of the
   month. `reconcile_push()` in `supabase/migrations/0004_reconcile_push.sql`.
+- `replyOrPush()` in `lib/line.ts`: answers in the 1:1 chat with a free reply and
+  pushes only when the token is missing, expired or the reply fails. Used for every
+  message to the sender in a 1:1 chat, including photos sent there. Group photos and
+  numbers typed in the group still push.
 
 ### Changed
 

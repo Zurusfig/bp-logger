@@ -296,8 +296,13 @@ A reply token arrives with every inbound event, costs nothing, expires in about 
 and can only answer the chat the message came from. Text follow-ups in the 1:1 chat are a
 fast database write, so a reply almost always makes the window.
 
-Group photos cannot use it, because the reply would land in the group. Those stay push.
-If the token has expired or the reply fails, fall back to push.
+Group photos cannot use it, because the reply would land in the group. Those stay push, and
+so do confirmations for numbers typed in the group. A photo sent in the 1:1 chat tries a
+reply too; a slow OCR read can miss the window, and then it pushes.
+
+If the token has expired or the reply fails, fall back to push. A failed reply doesn't alert,
+since an expired token is expected. Admin pushes and the summary are never replies: they go
+to someone other than whoever sent the event.
 
 ### The quota is counted locally, not asked for on every send
 
