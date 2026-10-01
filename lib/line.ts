@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import { alert } from "./alert";
+import { markExhausted } from "./quota";
 
 const API = "https://api.line.me/v2/bot";
 const DATA_API = "https://api-data.line.me/v2/bot";
@@ -36,19 +38,50 @@ export async function getMessageContent(messageId: string): Promise<Buffer> {
 
 export class PushForbidden extends Error {}
 
+export type PushResult = { ok: true } | { ok: false; status: number };
+
 /**
  * FR-5.3: always 1:1, never the group. Throws PushForbidden when the user has not
- * added the OA as a friend, so the caller can mark them unreachable and stay silent.
+ * added the OA as a friend, so the caller can mark them unreachable and stay silent
+ * — unchanged from before (docs/decisions.md, "Alerts never go over LINE").
+ *
+ * Every other outcome is returned as a typed result instead of thrown. A 429 means
+ * the monthly quota is gone: it's recorded so every further send fails closed until
+ * next month, and it alerts. Anything else unexpected also alerts — a 403 is the
+ * only push failure that isn't itself a problem worth paging the admin about.
+ *
+ * PUSH_DRY_RUN=true logs the message instead of calling LINE at all, for testing
+ * the quota/alerting plumbing without spending real sends.
  */
-export async function pushMessage(userId: string, text: string): Promise<void> {
-  const res = await fetch(`${API}/message/push`, {
-    method: "POST",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ to: userId, messages: [{ type: "text", text }] }),
-  });
+export async function pushMessage(userId: string, text: string): Promise<PushResult> {
+  if (process.env.PUSH_DRY_RUN === "true") {
+    console.log("push (dry run)", { userId, text });
+    return { ok: true };
+  }
 
+  let res: Response;
+  try {
+    res = await fetch(`${API}/message/push`, {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ to: userId, messages: [{ type: "text", text }] }),
+    });
+  } catch (err) {
+    await alert("error", `push request failed: ${String(err)}`);
+    return { ok: false, status: 0 };
+  }
+
+  if (res.ok) return { ok: true };
   if (res.status === 403) throw new PushForbidden(await res.text());
-  if (!res.ok) throw new Error(`push failed ${res.status}: ${await res.text()}`);
+
+  if (res.status === 429) {
+    await markExhausted();
+    await alert("warning", `LINE push quota exhausted (429): ${await res.text()}`);
+    return { ok: false, status: 429 };
+  }
+
+  await alert("error", `push failed ${res.status}: ${await res.text()}`);
+  return { ok: false, status: res.status };
 }
 
 export async function getGroupMemberName(

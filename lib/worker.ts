@@ -200,8 +200,9 @@ async function notifyHousehold(
     await Promise.allSettled(
       others.map(async (m) => {
         try {
-          await pushMessage(m.user_id, text);
-          sent++;
+          const result = await pushMessage(m.user_id, text);
+          if (result.ok) sent++;
+          else failed++;
         } catch (err) {
           failed++;
           if (err instanceof PushForbidden) {
@@ -260,7 +261,10 @@ async function notify(
   // not before — the fan-out runs.
   let senderErr: unknown = null;
   try {
-    await pushMessage(userId, text);
+    const result = await pushMessage(userId, text);
+    if (!result.ok) {
+      console.warn("sender push failed", { userId, status: result.status });
+    }
   } catch (err) {
     if (err instanceof PushForbidden) {
       await markUnreachable(userId);

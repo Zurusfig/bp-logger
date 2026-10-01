@@ -96,8 +96,9 @@ async function processHousehold(s: HouseholdSettings): Promise<HouseholdResult> 
   await Promise.allSettled(
     targets.map(async (m) => {
       try {
-        await pushMessage(m.user_id, text);
-        sent++;
+        const result = await pushMessage(m.user_id, text);
+        if (result.ok) sent++;
+        else failed++;
       } catch (err) {
         failed++;
         if (err instanceof PushForbidden) {
