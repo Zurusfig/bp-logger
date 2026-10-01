@@ -32,6 +32,13 @@ function valueLine(v: Vals): string {
     .join("  ");
 }
 
+/** The LIFF app's front page, i.e. the household's log. */
+function appLink(): string | null {
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+  if (!liffId) return null;
+  return `https://liff.line.me/${liffId}`;
+}
+
 function withLink(lines: string[], readingId: string, verb: string): string {
   const link = editLink(readingId);
   if (link) lines.push(`${verb} ${link}`);
@@ -112,7 +119,7 @@ export function msgSavedByOther(v: Vals, readingId: string, senderName?: string 
   );
 }
 
-/** Household fan-out: someone else's reading saved, but flagged for review. */
+/** Admin push: someone else's reading saved, but flagged for review. */
 export function msgSavedUnsureByOther(
   v: Vals,
   readingId: string,
@@ -139,7 +146,7 @@ export function msgTypedEntryByOther(
 }
 
 /**
- * Household fan-out: someone else's reading saved incomplete, some or all values
+ * Admin push: someone else's reading saved incomplete, some or all values
  * unread. Never tells the reader to reply with numbers — pending is keyed by the
  * sender's user_id, so only the sender's reply can fill it in. The edit link is
  * the only way a non-sender can complete it.
@@ -202,6 +209,28 @@ export function msgInvalidEntry(v: Vals, issues: string[]): string {
  */
 export function msgMissedEntry(labels: string[]): string {
   return ["ยังไม่ได้บันทึกความดันวันนี้", `เวลา: ${labels.join(" ")}`].join("\n");
+}
+
+/**
+ * The 22:00 summary to the admin. Counts and slot names only, never values: the
+ * LIFF log has those, and the flagged count stands in for any instant admin
+ * pushes the quota guard dropped.
+ */
+export function msgDailySummary(
+  logged: number,
+  flagged: number,
+  missingLabels: string[]
+): string {
+  const lines = ["สรุปความดันวันนี้", `บันทึกแล้ว ${logged} ครั้ง`];
+  if (flagged > 0) lines.push(`รอการตรวจสอบ ${flagged} ครั้ง`);
+  lines.push(
+    missingLabels.length > 0
+      ? `ยังไม่ได้บันทึก เวลา: ${missingLabels.join(" ")}`
+      : "บันทึกครบทุกเวลา"
+  );
+  const link = appLink();
+  if (link) lines.push(`ดูทั้งหมด ${link}`);
+  return lines.join("\n");
 }
 
 /** A plausible single value, so the example never looks like a placeholder. */

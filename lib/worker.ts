@@ -13,6 +13,7 @@ import {
   ensureMember,
   memberGroup,
   markUnreachable,
+  groupMembers,
   hashImage,
   findByHash,
   insertReading,
@@ -30,6 +31,8 @@ import {
   msgPartial,
   msgSaved,
   msgSavedUnsure,
+  msgSavedUnsureByOther,
+  msgIncompleteByOther,
   msgUnreadable,
   msgUpdated,
   msgWrongCount,
@@ -159,16 +162,54 @@ async function handleImage(e: LineEvent): Promise<void> {
     console.error("image upload failed", { id, err: String(err) });
   }
 
-  await notify(userId, id, cleaned, needsReviewFlag);
+  await notify(groupId, userId, id, cleaned, needsReviewFlag);
 }
 
 /**
- * The sender is the only person pushed about a reading (docs/decisions.md, "The
- * message budget decides who hears about a reading"). Everyone else sees it in
- * the LIFF app. The reading is already saved by the time this runs, so a failed
- * push is recorded, not rethrown — pushMessage has already alerted if it matters.
+ * Problem reads also go to the household's admins (docs/decisions.md, "The
+ * message budget decides who hears about a reading"), at the admin tier so the
+ * quota guard drops them before the sender's own messages. An admin who sent the
+ * reading already has it and is skipped. Never throws: the reading is already
+ * saved, and one admin's push failing must not stop the others.
+ */
+async function notifyAdmins(
+  groupId: string,
+  senderId: string,
+  build: (senderName?: string | null) => string
+): Promise<number> {
+  try {
+    const members = await groupMembers(groupId);
+    const admins = members.filter((m) => m.is_admin && m.notify_ok && m.user_id !== senderId);
+    if (admins.length === 0) return 0;
+
+    const sender = members.find((m) => m.user_id === senderId);
+    const text = build(sender?.display_name);
+
+    let sent = 0;
+    for (const a of admins) {
+      try {
+        const result = await pushMessage(a.user_id, text, "admin");
+        if (result.ok) sent++;
+      } catch (err) {
+        if (err instanceof PushForbidden) await markUnreachable(a.user_id);
+        else console.error("admin push failed", { userId: a.user_id, err: String(err) });
+      }
+    }
+    return sent;
+  } catch (err) {
+    console.error("admin push failed", { groupId, senderId, err: String(err) });
+    return 0;
+  }
+}
+
+/**
+ * The sender always hears about their own reading; the admins hear about it too
+ * when it needs review. Everyone else sees it in the LIFF app. The reading is
+ * already saved by the time this runs, so a failed push is recorded, not
+ * rethrown — pushMessage has already alerted if it matters.
  */
 async function notify(
+  groupId: string,
   userId: string,
   readingId: string,
   r: Reading,
@@ -201,7 +242,19 @@ async function notify(
     }
   }
 
-  console.log("reading saved", { readingId, needsReview: needsReviewFlag });
+  // Missing values take priority over needsReviewFlag for the message choice: a
+  // partial read is also stored needs_review=true, but the admin needs to know
+  // it's incomplete specifically, since only the sender's reply or the edit link
+  // can fill it in.
+  const adminsSent = needsReviewFlag
+    ? await notifyAdmins(groupId, userId, (name) =>
+        missing.length > 0
+          ? msgIncompleteByOther(vals, readingId, name)
+          : msgSavedUnsureByOther(vals, readingId, name)
+      )
+    : 0;
+
+  console.log("reading saved", { readingId, needsReview: needsReviewFlag, adminsSent });
 }
 
 // -------------------------------------------------------------- typed entry

@@ -273,6 +273,10 @@ Who gets a push:
 
 About 202 of 300 in a normal month. The household fan-out was 690 and did not fit.
 
+The admin is whoever has `members.is_admin` set, by hand in Supabase. The column was in the
+schema from the start and unused until now. A household can have more than one, and each one
+costs a send. An admin who sent the reading is not pushed about it twice.
+
 ### When the quota runs low, reminders go first
 
 `lib/quota.ts`
@@ -359,8 +363,14 @@ The 22:00 entry survives because the daily summary needs it: how many readings w
 how many were flagged, which slots are missing. That is one message a day to the admin
 instead of one per member per missed slot.
 
+The summary goes to every reachable admin, even on a day with nothing logged, since that is
+the day the admin most needs to hear about. A household with no admin gets no summary, and
+the run logs that. Missing slots are the ones whose start time has passed and that have no
+reading yet, so a slot that begins after 22:00 is never reported missing.
+
 The route still works out from the data what is due, so repeated or overlapping runs stay
-harmless. Reminder sends are recorded before the push, which means a send blocked by the
+harmless. The summary is recorded in `reminders_sent` under the reserved key `_summary`
+before it is pushed, so a retry finds it and sends nothing. Reminder sends are recorded before the push, which means a send blocked by the
 quota guard still consumes its claim. Acceptable while reminders are off; revisit if they
 come back.
 

@@ -17,6 +17,12 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
   still runs, so dry-run sends count against `push_log`.
 - `REMINDERS_ENABLED=true` turns the missed-slot reminders back on.
 - `docs/incidents.md`, starting with the 2026-09 push quota outage.
+- 22:00 daily summary to each household's admins: readings logged today, how many
+  still need review, and which started slots are empty. Sent once a day, at tier
+  `summary`, even when nothing was logged.
+- Instant admin push for problem reads: a photo reading saved with `needs_review`
+  goes to every admin other than the sender, at tier `admin`.
+- Admins are members with `members.is_admin` set, by hand in Supabase.
 
 ### Changed
 
@@ -33,7 +39,8 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
   claim is refused. Sender messages use tier `sender`, reminders `reminder`.
 - The sender's failed push is logged instead of rethrown.
 - Reminders are off unless `REMINDERS_ENABLED=true`. Previously documented as off
-  but never actually gated.
+  but never actually gated. The cron route now runs the summary every night and the
+  reminders only when turned on.
 
 ### Removed
 
