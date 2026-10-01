@@ -107,6 +107,22 @@ export async function pushMessage(
   return { ok: false, reason: "error", status: res.status };
 }
 
+/** Messages LINE has counted against this month's quota. Replies are not counted. */
+export async function getQuotaConsumption(): Promise<number> {
+  const res = await fetch(`${API}/message/quota/consumption`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`quota consumption failed ${res.status}: ${await res.text()}`);
+  const body = (await res.json()) as { totalUsage: number };
+  return body.totalUsage;
+}
+
+/** This month's sending limit, or null when the channel has none set. */
+export async function getQuotaLimit(): Promise<number | null> {
+  const res = await fetch(`${API}/message/quota`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`quota limit failed ${res.status}: ${await res.text()}`);
+  const body = (await res.json()) as { type: "none" | "limited"; value?: number };
+  return body.type === "limited" ? (body.value ?? null) : null;
+}
+
 export async function getGroupMemberName(
   groupId: string,
   userId: string

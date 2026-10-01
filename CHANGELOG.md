@@ -27,6 +27,10 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
   `worker failed` and `event failed`, and when the cron route fails.
 - `supabase/migrations/0003_mark_exhausted_once.sql`: `mark_push_exhausted()` returns
   whether this call set the flag.
+- Nightly quota sync: the 22:00 cron overwrites `push_log.used` with LINE's own count
+  before sending the summary, alerting on tier crossings, drift of 10 or more, and a
+  LINE limit that differs from `MONTHLY_BUDGET`. Skipped on the last UTC day of the
+  month. `reconcile_push()` in `supabase/migrations/0004_reconcile_push.sql`.
 
 ### Changed
 

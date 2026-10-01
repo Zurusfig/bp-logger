@@ -311,6 +311,16 @@ day, and a 429 sets `exhausted` until the next month.
 The local count can drift, for example when LINE does not count a push to someone who blocked
 the account. The nightly sync corrects it, and the reserve absorbs the drift in between.
 
+The sync overwrites `used` with LINE's `totalUsage` in either direction, and leaves
+`exhausted` alone. It runs before the summary so the summary claims against the corrected
+count. Raising the count can skip past a tier floor without any claim landing on it, so the
+sync checks crossings itself. A drift of 10 or more alerts, and so does LINE reporting a
+monthly limit other than `MONTHLY_BUDGET`.
+
+It skips the last UTC day of each month. The cron fires at 15:00 UTC, already the next day
+in Japan, and LINE's reset timezone is unconfirmed. If it resets on Japan time, that night's
+sync would write the new month's count into the old month's row.
+
 ### Alerts never go over LINE
 
 `lib/alert.ts`

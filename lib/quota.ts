@@ -75,6 +75,53 @@ export async function claim(tier: Tier): Promise<ClaimResult> {
     : { claimed: false, used: row.used, exhausted: row.exhausted };
 }
 
+/** Drift at or above this many sends alerts; anything smaller the reserve absorbs. */
+const DRIFT_ALERT = 10;
+
+export type ReconcileResult = { previous: number; used: number };
+
+/**
+ * Overwrites this month's local count with LINE's (see reconcile_push() in
+ * migration 0004). Raising the count can jump straight past a tier floor
+ * without any claim landing on it, so crossings are checked here too.
+ *
+ * Returns null on a DB error, after alerting.
+ */
+export async function reconcile(lineUsed: number): Promise<ReconcileResult | null> {
+  const { data, error } = await getDb()
+    .rpc("reconcile_push", { p_used: lineUsed })
+    .single();
+
+  if (error) {
+    await alert("error", `quota reconcile failed: ${error.message}`);
+    return null;
+  }
+
+  const row = data as { prev_used: number; new_used: number };
+  const before = MONTHLY_BUDGET - row.prev_used;
+  const after = MONTHLY_BUDGET - row.new_used;
+
+  for (const [floor, stops] of Object.entries(CROSSING)) {
+    const f = Number(floor);
+    if (before > f && after <= f) {
+      await alert(
+        f === 0 ? "error" : "warning",
+        `push quota: ${after} of ${MONTHLY_BUDGET} left after syncing with LINE, ${stops}`
+      );
+    }
+  }
+
+  const drift = row.new_used - row.prev_used;
+  if (Math.abs(drift) >= DRIFT_ALERT) {
+    await alert(
+      "warning",
+      `push quota drifted by ${drift}: local ${row.prev_used}, LINE ${row.new_used}`
+    );
+  }
+
+  return { previous: row.prev_used, used: row.new_used };
+}
+
 /**
  * Set on a 429 from LINE. Stops every further send this month regardless of
  * tier or remaining count, until next month's push_log row starts fresh. The
