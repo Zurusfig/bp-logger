@@ -77,13 +77,15 @@ export type Member = {
   notify_ok: boolean;
   notify_all: boolean;
   notify_reminders: boolean;
+  /** Gets problem-read pushes and the 22:00 summary. Set by hand in Supabase. */
+  is_admin: boolean;
 };
 
-/** Every member of a household, for the notification and reminder fan-out. */
+/** Every member of a household, for admin pushes, the summary and reminders. */
 export async function groupMembers(groupId: string): Promise<Member[]> {
   const { data } = await getDb()
     .from("members")
-    .select("user_id,display_name,notify_ok,notify_all,notify_reminders")
+    .select("user_id,display_name,notify_ok,notify_all,notify_reminders,is_admin")
     .eq("group_id", groupId);
   return (data as Member[]) ?? [];
 }
@@ -326,6 +328,29 @@ export async function loggedSlots(groupId: string, readingDate: string): Promise
     .eq("reading_date", readingDate)
     .is("deleted_at", null);
   return new Set((data ?? []).map((r: { slot: string }) => r.slot));
+}
+
+export type DayCounts = {
+  logged: number;
+  /** Still needs_review, i.e. flagged and not yet edited or confirmed. */
+  flagged: number;
+  slots: Set<string>;
+};
+
+/** One household's readings for a local date, counted for the 22:00 summary. */
+export async function dayCounts(groupId: string, readingDate: string): Promise<DayCounts> {
+  const { data } = await getDb()
+    .from("readings")
+    .select("slot,needs_review")
+    .eq("group_id", groupId)
+    .eq("reading_date", readingDate)
+    .is("deleted_at", null);
+  const rows = (data ?? []) as { slot: string | null; needs_review: boolean }[];
+  return {
+    logged: rows.length,
+    flagged: rows.filter((r) => r.needs_review).length,
+    slots: new Set(rows.flatMap((r) => (r.slot ? [r.slot] : []))),
+  };
 }
 
 /**
