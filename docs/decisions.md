@@ -112,7 +112,7 @@ tell what it's looking at. Any unexpected reply from the model is also treated a
 
 ### Triage is skipped in a private chat
 
-`lib/worker.ts:115`
+`lib/worker.ts:108`
 
 Forwarding a photo to the bot directly is an explicit request to read it. That doesn't need
 filtering, so it goes straight to the full pipeline.
@@ -135,7 +135,7 @@ silently disables every outgoing message for the rest of the month.
 
 ### One row per photo, never merged
 
-`lib/worker.ts:110`, `lib/db.ts:106`
+`lib/worker.ts:103`, `lib/db.ts:106`
 
 Deduplication is an exact SHA-256 of the image bytes, scoped to the group. The same photo
 posted twice is one reading. Two different photos minutes apart are two readings, because
@@ -240,7 +240,7 @@ household still needs telling. The error is held and rethrown after the fan-out 
 
 ### Typed numbers in the group need an exact match
 
-`lib/worker.ts:333`
+`lib/worker.ts:265`
 
 The regex is anchored at both ends and matches three numbers with separators and nothing
 else. Thai phone numbers and prices in ordinary chat both contain runs of digits, and neither
@@ -253,9 +253,10 @@ should create a reading.
 The reminder says a slot hasn't been logged today. It never mentions values, risk or
 outcomes. It's the same shape whether one slot or three are due.
 
-Disabled 2026-09 via `REMINDERS_ENABLED=false`. The family didn't act on them, and each one
-cost one message per recipient. Missed slots appear in the 22:00 summary instead. The code
-stays in place so they can be switched back on if the habit changes.
+Disabled 2026-09: off unless `REMINDERS_ENABLED=true`, so a missing variable can't turn
+them back on. The family didn't act on them, and each one cost one message per recipient.
+Missed slots appear in the 22:00 summary instead. The code stays in place so they can be
+switched back on if the habit changes.
 
 ### The message budget decides who hears about a reading
 

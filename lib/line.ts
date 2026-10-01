@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { alert } from "./alert";
-import { markExhausted } from "./quota";
+import { claim, markExhausted, type Tier } from "./quota";
 
 const API = "https://api.line.me/v2/bot";
 const DATA_API = "https://api-data.line.me/v2/bot";
@@ -38,12 +38,20 @@ export async function getMessageContent(messageId: string): Promise<Buffer> {
 
 export class PushForbidden extends Error {}
 
-export type PushResult = { ok: true } | { ok: false; status: number };
+export type PushResult =
+  | { ok: true }
+  | { ok: false; reason: "quota" }
+  | { ok: false; reason: "error"; status: number };
 
 /**
  * FR-5.3: always 1:1, never the group. Throws PushForbidden when the user has not
  * added the OA as a friend, so the caller can mark them unreachable and stay silent
  * — unchanged from before (docs/decisions.md, "Alerts never go over LINE").
+ *
+ * Every send claims one message against the monthly budget first, at the given
+ * tier's reserve (lib/quota.ts). A refused claim is a normal "don't send", not an
+ * error: it returns reason "quota" without calling LINE. Taking the tier here
+ * rather than at each call site means no send path can skip the budget.
  *
  * Every other outcome is returned as a typed result instead of thrown. A 429 means
  * the monthly quota is gone: it's recorded so every further send fails closed until
@@ -51,11 +59,22 @@ export type PushResult = { ok: true } | { ok: false; status: number };
  * only push failure that isn't itself a problem worth paging the admin about.
  *
  * PUSH_DRY_RUN=true logs the message instead of calling LINE at all, for testing
- * the quota/alerting plumbing without spending real sends.
+ * the quota/alerting plumbing without spending real sends. The claim still runs,
+ * so a dry run does count against push_log.
  */
-export async function pushMessage(userId: string, text: string): Promise<PushResult> {
+export async function pushMessage(
+  userId: string,
+  text: string,
+  tier: Tier
+): Promise<PushResult> {
+  const claimed = await claim(tier);
+  if (!claimed.claimed) {
+    console.warn("push skipped, quota", { userId, tier, used: claimed.used });
+    return { ok: false, reason: "quota" };
+  }
+
   if (process.env.PUSH_DRY_RUN === "true") {
-    console.log("push (dry run)", { userId, text });
+    console.log("push (dry run)", { userId, tier, text });
     return { ok: true };
   }
 
@@ -68,7 +87,7 @@ export async function pushMessage(userId: string, text: string): Promise<PushRes
     });
   } catch (err) {
     await alert("error", `push request failed: ${String(err)}`);
-    return { ok: false, status: 0 };
+    return { ok: false, reason: "error", status: 0 };
   }
 
   if (res.ok) return { ok: true };
@@ -77,11 +96,11 @@ export async function pushMessage(userId: string, text: string): Promise<PushRes
   if (res.status === 429) {
     await markExhausted();
     await alert("warning", `LINE push quota exhausted (429): ${await res.text()}`);
-    return { ok: false, status: 429 };
+    return { ok: false, reason: "error", status: 429 };
   }
 
   await alert("error", `push failed ${res.status}: ${await res.text()}`);
-  return { ok: false, status: res.status };
+  return { ok: false, reason: "error", status: res.status };
 }
 
 export async function getGroupMemberName(
