@@ -17,6 +17,11 @@
 
 ### Changed
 
+- `REVIEW_THRESHOLD` 0.95 to 0.75 (`lib/ocr.ts`). Set from 53 September production
+  readings, where every correction sat at 0.60 or below, instead of one eval run of
+  twenty images. See docs/decisions.md ("The review threshold comes from production
+  corrections").
+
 - `lib/line.ts`: `pushMessage` now returns a typed `PushResult` instead of resolving
   `void`. A 429 sets `push_log.exhausted` and alerts; any other non-ok, non-403
   response alerts. 403 is unchanged — still throws `PushForbidden` for the caller to

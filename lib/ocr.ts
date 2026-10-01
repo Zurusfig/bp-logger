@@ -6,8 +6,12 @@ const client = new Anthropic();
 
 export const OCR_MODEL = "claude-sonnet-4-6";
 
-/** Below this confidence a reading goes to the review queue instead of saving clean. */
-export const REVIEW_THRESHOLD = 0.95;
+/**
+ * Below this confidence a reading goes to the review queue instead of saving clean.
+ * Set from production corrections, not the eval set (docs/decisions.md, "The review
+ * threshold comes from production corrections").
+ */
+export const REVIEW_THRESHOLD = 0.75;
 
 export type Reading = {
   orientation_deg: 0 | 90 | 180 | 270;
