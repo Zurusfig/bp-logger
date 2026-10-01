@@ -394,6 +394,25 @@ before it is pushed, so a retry finds it and sends nothing. Reminder sends are r
 quota guard still consumes its claim. Acceptable while reminders are off; revisit if they
 come back.
 
+### Anthropic spend is counted locally
+
+`lib/spend.ts`
+
+Running out of prepaid API credits stops every photo read, so the admin needs to see it
+coming. The API has no balance endpoint, and the Admin API cost report isn't available to
+individual accounts. So every Claude call records the token counts from its own response
+in `anthropic_usage`, per Bangkok day and model, and the 22:00 cron prices them and posts
+one Discord message: today, this month, and the 7-day average. A day over 3x the average
+(and over $0.50) posts as a warning.
+
+It only sees this app's calls. Anything else using the same API key is missing, so the
+figure reads low, never high. The balance itself stays in the Console. Prices live in
+`PRICES`; a model missing from it counts as $0 and is named in the message, so a model
+change can't quietly under-report.
+
+When the credits do run out, Claude returns a 400, the read fails, and the `event failed`
+alert carries the error at once. The daily message is the early warning, not the only one.
+
 ### The Supabase client is built lazily
 
 `lib/db.ts:13`

@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import Anthropic from "@anthropic-ai/sdk";
 import { toBase64 } from "./image";
+import { recordUsage } from "./spend";
 
 const client = new Anthropic();
 
@@ -86,6 +87,7 @@ Answer with exactly one word: YES or NO.`,
       },
     ],
   });
+  await recordUsage(res.model, res.usage);
 
   const text = res.content
     .filter((c) => c.type === "text")
